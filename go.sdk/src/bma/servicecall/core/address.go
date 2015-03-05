@@ -6,9 +6,9 @@ import (
 )
 
 type Address struct {
-	typ string
-	api string
-	ctx *Context
+	typ    string
+	api    string
+	option *ValueMap
 }
 
 func NewAddress() *Address {
@@ -16,11 +16,11 @@ func NewAddress() *Address {
 	return o
 }
 
-func CreateAddress(typ string, api string, ctx map[string]interface{}) *Address {
+func CreateAddress(typ string, api string, opts map[string]interface{}) *Address {
 	o := NewAddress()
 	o.typ = typ
 	o.api = api
-	o.ctx = CreateContext(ctx)
+	o.option = CreateValueMap(opts)
 	return o
 }
 
@@ -40,26 +40,26 @@ func (this *Address) SetAPI(v string) {
 	this.api = v
 }
 
-func (this *Address) GetContext() *Context {
-	return this.ctx
+func (this *Address) GetOption() *ValueMap {
+	return this.option
 }
 
-func (this *Address) SetContext(v *Context) {
-	this.ctx = v
+func (this *Address) SetOption(v *ValueMap) {
+	this.option = v
 }
 
-func (this *Address) SureContext() *Context {
-	if this.ctx == nil {
-		this.ctx = NewContext()
+func (this *Address) SureOption() *ValueMap {
+	if this.option == nil {
+		this.option = NewValueMap(nil)
 	}
-	return this.ctx
+	return this.option
 }
 
 func (this *Address) String() string {
 	buf := bytes.NewBuffer([]byte{})
 	buf.WriteString(fmt.Sprintf("TYPE:%s, API:%s", this.typ, this.api))
-	if this.ctx != nil {
-		buf.WriteString(fmt.Sprintf(", %s", this.ctx))
+	if this.option != nil {
+		buf.WriteString(fmt.Sprintf(", %s", this.option.Dump()))
 	}
 	return buf.String()
 }

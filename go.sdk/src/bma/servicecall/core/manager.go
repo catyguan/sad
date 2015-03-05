@@ -1,6 +1,9 @@
 package core
 
 import "fmt"
+import (
+	"sync/atomic"
+)
 
 var (
 	gDS map[string]DriverFactory
@@ -25,16 +28,20 @@ func InitDriverFactory(typ string, df DriverFactory) {
 }
 
 type Manager struct {
+	name      string
+	clientSeq uint32
 }
 
-func NewManager() *Manager {
+func NewManager(n string) *Manager {
 	o := new(Manager)
+	o.name = n
 	return o
 }
 
 func (this *Manager) CreateClient() *Client {
 	o := new(Client)
 	o.manager = this
+	o.id = atomic.AddUint32(&this.clientSeq, 1)
 	return o
 }
 
@@ -43,5 +50,5 @@ func (this *Manager) GetDriver(addr *Address) (Driver, error) {
 	if df == nil {
 		return nil, fmt.Errorf("unknow driver(%s)", addr.GetType())
 	}
-	return df.GetDriver(addr.GetAPI(), addr.GetContext())
+	return df.GetDriver(addr.GetAPI())
 }

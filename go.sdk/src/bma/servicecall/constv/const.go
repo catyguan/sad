@@ -13,3 +13,12 @@ const (
 	TYPES_MAP    = 9
 	TYPES_BINARY = 10
 )
+
+const (
+	KEY_TIMEOUT        = "Timeout"
+	KEY_DEADLINE       = "Deadline"
+	KEY_APP_ID         = "AppId"
+	KEY_REQ_ID         = "ReqId"
+	KEY_TRANSACTION_ID = "TransactionId"
+	KEY_SESSION_ID     = "SessionId"
+)

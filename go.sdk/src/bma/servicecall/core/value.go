@@ -33,6 +33,10 @@ func CreateValue(val interface{}) *Value {
 	}
 }
 
+type isstring interface {
+	String() string
+}
+
 func ConvertValue(val interface{}) (int8, interface{}, error) {
 	if val == nil {
 		return 0, nil, nil
@@ -82,6 +86,9 @@ func ConvertValue(val interface{}) (int8, interface{}, error) {
 		return constv.TYPES_MAP, CreateValueMap(rv), nil
 	case []byte:
 		return constv.TYPES_BINARY, rv, nil
+	}
+	if s, ok := val.(isstring); ok {
+		return constv.TYPES_STRING, s.String(), nil
 	}
 	return 0, nil, fmt.Errorf("unknow value(%T)", val)
 }
@@ -470,8 +477,7 @@ func NewValueMap(data map[string]*Value) *ValueMap {
 	return o
 }
 
-func CreateValueMap(data map[string]interface{}) *ValueMap {
-	o := new(ValueMap)
+func initValueMap(o *ValueMap, data map[string]interface{}) {
 	if data != nil {
 		r := make(map[string]*Value)
 		for k, av := range data {
@@ -479,6 +485,11 @@ func CreateValueMap(data map[string]interface{}) *ValueMap {
 		}
 		o.data = r
 	}
+}
+
+func CreateValueMap(data map[string]interface{}) *ValueMap {
+	o := new(ValueMap)
+	initValueMap(o, data)
 	return o
 }
 
@@ -501,6 +512,14 @@ func (this *ValueMap) ToMap() map[string]interface{} {
 		r[k] = v.ToValue()
 	}
 	return r
+}
+
+func (this *ValueMap) Has(k string) bool {
+	if this.data == nil {
+		return false
+	}
+	_, ok := this.data[k]
+	return ok
 }
 
 func (this *ValueMap) Get(k string) *Value {
@@ -617,6 +636,21 @@ func (this *ValueMap) CreateArray(k string) *ValueArray {
 	return r
 }
 
+func (this *ValueMap) Remove(k string) {
+	if this.data == nil {
+		return
+	}
+	delete(this.data, k)
+}
+
+func (this *ValueMap) Walk(w ValueMapWalker) {
+	for k, v := range this.data {
+		if w(k, v) {
+			return
+		}
+	}
+}
+
 type ValueArray struct {
 	data []*Value
 }
@@ -683,4 +717,23 @@ func (this *ValueArray) Set(idx int, v *Value) bool {
 
 func (this *ValueArray) Add(v *Value) {
 	this.data = append(this.data, v)
+}
+
+func (this *ValueArray) Remove(idx int) {
+	if this.data == nil {
+		return
+	}
+	if idx < 0 || idx >= len(this.data) {
+		return
+	}
+	s := this.data
+	this.data = append(s[:idx], s[idx+1:]...)
+}
+
+func (this *ValueArray) Walk(w ValueArrayWalker) {
+	for i, v := range this.data {
+		if w(i, v) {
+			return
+		}
+	}
 }

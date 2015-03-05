@@ -9,6 +9,12 @@ func NewRequest() *Request {
 	return o
 }
 
+func CreateRequest(data map[string]interface{}) *Request {
+	o := new(Request)
+	initValueMap(&o.ValueMap, data)
+	return o
+}
+
 type Context struct {
 	ValueMap
 }
@@ -20,6 +26,7 @@ func NewContext() *Context {
 
 func CreateContext(data map[string]interface{}) *Context {
 	o := NewContext()
+	initValueMap(&o.ValueMap, data)
 	return o
 }
 
@@ -27,6 +34,11 @@ type Answer struct {
 	status  int
 	message string
 	result  *ValueMap
+}
+
+func NewAnswer() *Answer {
+	o := new(Answer)
+	return o
 }
 
 func (this *Answer) Dump() string {
