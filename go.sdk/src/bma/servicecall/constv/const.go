@@ -1,6 +1,19 @@
 package constv
 
 const (
+	STATUS_CONTINUE   = 100
+	STATUS_DONE       = 200
+	STATUS_SYNC       = 202
+	STATUS_OK         = 204
+	STATUS_REDIRECT   = 302
+	STATUS_INVALID    = 400
+	STATUS_REJECT     = 403
+	STATUS_TIMEOUT    = 408
+	STATUS_ERROR      = 500
+	STATUS_BADGATEWAY = 502
+)
+
+const (
 	TYPES_NULL   = 0
 	TYPES_BOOL   = 1
 	TYPES_INT    = 2

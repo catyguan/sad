@@ -111,21 +111,21 @@ func (this *HttpDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address, 
 	dltm := ctx.GetLong(constv.KEY_DEADLINE)
 	dl := time.Unix(dltm, 0)
 	client := newHttpClient(dl)
-	fmt.Printf("'%s' start\n", qurl)
+	sccore.DoLog("'%s' start", qurl)
 
 	hresp, err3 := client.Do(hreq)
 	if err3 != nil {
-		fmt.Printf("'%s' fail '%s'\n", qurl, err3)
+		sccore.DoLog("'%s' fail '%s'", qurl, err3)
 		return nil, err3
 	}
-	fmt.Printf("'%s' end '%d'\n", qurl, hresp.StatusCode)
+	sccore.DoLog("'%s' end '%d'", qurl, hresp.StatusCode)
 	defer hresp.Body.Close()
 	respBody, err4 := ioutil.ReadAll(hresp.Body)
 	if err4 != nil {
 		return nil, err4
 	}
 	content := string(respBody)
-	fmt.Printf("'%s' --> %s\n", qurl, content)
+	sccore.DoLog("'%s' --> %s", qurl, content)
 
 	a := sccore.NewAnswer()
 
@@ -149,6 +149,8 @@ func (this *HttpDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address, 
 		a.SetMessage(msg)
 		rs := mm.GetMap("Result")
 		a.SetResult(rs)
+		actx := mm.GetMap("Context")
+		a.SetContext(actx)
 	case 301, 302:
 		a.SetStatus(302)
 		loc := hresp.Header.Get("Location")

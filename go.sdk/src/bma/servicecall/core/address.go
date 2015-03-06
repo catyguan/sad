@@ -24,6 +24,28 @@ func CreateAddress(typ string, api string, opts map[string]interface{}) *Address
 	return o
 }
 
+func CreateAddressFromMap(vm map[string]interface{}) *Address {
+	return CreateAddressFromValue(CreateValueMap(vm))
+}
+
+func CreateAddressFromValue(vm *ValueMap) *Address {
+	o := NewAddress()
+	o.typ = vm.GetString("Type")
+	o.api = vm.GetString("API")
+	o.option = vm.GetMap("Option")
+	return o
+}
+
+func (this *Address) Valid() error {
+	if this.typ == "" {
+		return fmt.Errorf("address type empty")
+	}
+	if this.api == "" {
+		return fmt.Errorf("address api empty")
+	}
+	return nil
+}
+
 func (this *Address) GetType() string {
 	return this.typ
 }

@@ -20,7 +20,7 @@ type ValueMapWalker func(k string, v *Value) (stop bool)
 type ValueArrayWalker func(idx int, v *Value) (stop bool)
 
 type ServicePeer interface {
-	BeginTransaction()
+	BeginTransaction() (string, error)
 	EndTransaction()
 
 	ReadRequest(waitTime time.Duration) (*Request, *Context, error)

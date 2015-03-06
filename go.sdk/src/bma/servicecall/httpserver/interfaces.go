@@ -13,7 +13,7 @@ type ServiceObject interface {
 type ServiceDispatch func(r *http.Request) (string, string, error)
 
 func DefaultServiceDispatch(r *http.Request) (string, string, error) {
-	uri := r.URL.RequestURI()
+	uri := r.RequestURI
 	ps := strings.Split(uri, "/")
 	l := len(ps)
 	switch l {

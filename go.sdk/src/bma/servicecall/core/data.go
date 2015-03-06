@@ -1,5 +1,7 @@
 package core
 
+import "fmt"
+
 type Request struct {
 	ValueMap
 }
@@ -34,6 +36,7 @@ type Answer struct {
 	status  int
 	message string
 	result  *ValueMap
+	context *ValueMap
 }
 
 func NewAnswer() *Answer {
@@ -41,8 +44,27 @@ func NewAnswer() *Answer {
 	return o
 }
 
+func (this *Answer) ToMap() map[string]interface{} {
+	m := make(map[string]interface{})
+	m["Status"] = this.status
+	if this.message != "" {
+		m["Message"] = this.message
+	}
+	if this.result != nil {
+		m["Result"] = this.result.ToMap()
+	}
+	if this.context != nil {
+		m["Context"] = this.context.ToMap()
+	}
+	return m
+}
+
 func (this *Answer) Dump() string {
-	return ""
+	return fmt.Sprintf("%v", this.ToMap())
+}
+
+func (this *Answer) String() string {
+	return this.Dump()
 }
 
 func (this *Answer) IsProcessing() bool {
@@ -84,7 +106,7 @@ func (this *Answer) GetResult() *ValueMap {
 }
 
 func (this *Answer) SureResult() *ValueMap {
-	if this.result != nil {
+	if this.result == nil {
 		this.result = NewValueMap(nil)
 	}
 	return this.result
@@ -92,4 +114,19 @@ func (this *Answer) SureResult() *ValueMap {
 
 func (this *Answer) SetResult(v *ValueMap) {
 	this.result = v
+}
+
+func (this *Answer) GetContext() *ValueMap {
+	return this.context
+}
+
+func (this *Answer) SureContext() *ValueMap {
+	if this.context == nil {
+		this.context = NewValueMap(nil)
+	}
+	return this.context
+}
+
+func (this *Answer) SetContext(v *ValueMap) {
+	this.context = v
 }
