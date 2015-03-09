@@ -8,17 +8,26 @@ import (
 )
 
 type Client struct {
-	manager *Manager
-	id      uint32
-	reqSeq  uint32
-	inTrans bool
-	transId string
+	manager   *Manager
+	id        uint32
+	reqSeq    uint32
+	inTrans   bool
+	transId   string
+	sessionId string
 }
 
 func (this *Client) CreateReqId() string {
 	this.reqSeq++
 	seq := this.reqSeq
 	return fmt.Sprintf("%s_%d_%d", this.manager.name, this.id, seq)
+}
+
+func (this *Client) GetSessionId() string {
+	return this.sessionId
+}
+
+func (this *Client) SetSessionId(v string) {
+	this.sessionId = v
 }
 
 func (this *Client) doInvoke(addr *Address, req *Request, ctx *Context) (*Answer, error) {
@@ -50,6 +59,9 @@ func (this *Client) Invoke(addr *Address, req *Request, ctx *Context) (*Answer, 
 		if this.inTrans && this.transId != "" {
 			ctx.Put(constv.KEY_TRANSACTION_ID, this.transId)
 		}
+		if this.sessionId != "" {
+			ctx.Put(constv.KEY_SESSION_ID, this.sessionId)
+		}
 		a, err := this.doInvoke(addr, req, ctx)
 		if err != nil {
 			return a, err
@@ -60,6 +72,10 @@ func (this *Client) Invoke(addr *Address, req *Request, ctx *Context) (*Answer, 
 				tid := actx.GetString(constv.KEY_TRANSACTION_ID)
 				if tid != "" {
 					this.transId = tid
+				}
+				sid := actx.GetString(constv.KEY_SESSION_ID)
+				if sid != "" {
+					this.sessionId = sid
 				}
 			}
 		}
@@ -87,8 +103,17 @@ func (this *Client) Invoke(addr *Address, req *Request, ctx *Context) (*Answer, 
 	}
 }
 
-func (this *Client) BeginTransaction() {
-	this.inTrans = true
+func (this *Client) Close() {
+
+}
+
+func (this *Client) BeginTransaction() bool {
+	if !this.inTrans {
+		this.inTrans = true
+		this.transId = ""
+		return true
+	}
+	return false
 }
 
 func (this *Client) EndTransaction() {
@@ -96,6 +121,36 @@ func (this *Client) EndTransaction() {
 	this.transId = ""
 }
 
-func (this *Client) Close() {
+func (this *Client) IsTransacion() bool {
+	return this.inTrans
+}
 
+func (this *Client) Export() map[string]interface{} {
+	r := make(map[string]interface{})
+	if this.inTrans && this.transId != "" {
+		r["TransId"] = this.transId
+	}
+	if this.sessionId != "" {
+		r["SessionId"] = this.sessionId
+	}
+	return r
+}
+
+func (this *Client) Import(data map[string]interface{}) error {
+	if data == nil {
+		return nil
+	}
+	if this.inTrans {
+		if sv, ok := data["TransId"]; ok {
+			if s, ok2 := sv.(string); ok2 {
+				this.transId = s
+			}
+		}
+	}
+	if sv, ok := data["SessionId"]; ok {
+		if s, ok2 := sv.(string); ok2 {
+			this.sessionId = s
+		}
+	}
+	return nil
 }

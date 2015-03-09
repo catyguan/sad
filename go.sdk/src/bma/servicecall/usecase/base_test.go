@@ -52,7 +52,43 @@ func T2estBase(t *testing.T) {
 	}
 }
 
-func TestAdd(t *testing.T) {
+func T2estBinary(t *testing.T) {
+	initTest()
+
+	manager := sccore.NewManager("test")
+	cl := manager.CreateClient()
+	defer cl.Close()
+
+	// url := "http://api.myhost.com/test/hello"
+	// url := "http://cn.bing.com/"
+	url := "http://localhost:1080/test/echo"
+
+	addr := sccore.CreateAddress("http", url, nil)
+	req := sccore.NewRequest()
+	req.Put("binary", []byte("Kitty"))
+	ctx := sccore.NewContext()
+
+	answer, err := cl.Invoke(addr, req, ctx)
+	if err != nil {
+		t.Errorf("invoke fail - %s", err)
+		return
+	}
+	fmt.Println(answer.Dump())
+
+	if answer.IsDone() {
+		rs := answer.GetResult()
+		if rs != nil {
+			dat := rs.GetMap("Data")
+			fmt.Println("RESULT ===", dat.GetBinary("binary"))
+		} else {
+			fmt.Println("RESULT NULL")
+		}
+	} else {
+		fmt.Println("not done")
+	}
+}
+
+func T2estAdd(t *testing.T) {
 	initTest()
 
 	manager := sccore.NewManager("test")

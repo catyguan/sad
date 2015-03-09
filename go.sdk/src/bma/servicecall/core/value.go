@@ -2,6 +2,7 @@ package core
 
 import (
 	"bma/servicecall/constv"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 )
@@ -119,28 +120,36 @@ func (this *Value) As(typ int8) interface{} {
 	return nil
 }
 
+func noConverter(typ int8, val interface{}) interface{} {
+	return val
+}
+
 func (this *Value) ToValue() interface{} {
+	return this.ConvertValue(noConverter)
+}
+
+func (this *Value) ConvertValue(dc DataConverter) interface{} {
 	switch this.typ {
 	case constv.TYPES_NULL:
-		return nil
+		return dc(this.typ, nil)
 	case constv.TYPES_ARRAY:
 		o := this.val.(*ValueArray)
 		r := make([]interface{}, len(o.data))
 		for i, v := range o.data {
-			r[i] = v.ToValue()
+			r[i] = v.ConvertValue(dc)
 		}
 		return r
 	case constv.TYPES_MAP:
 		if o, ok := this.val.(*ValueMap); ok {
 			r := make(map[string]interface{})
 			for k, v := range o.data {
-				r[k] = v.ToValue()
+				r[k] = v.ConvertValue(dc)
 			}
 			return r
 		}
 		return nil
 	default:
-		return this.val
+		return dc(this.typ, this.val)
 	}
 }
 
@@ -419,7 +428,7 @@ func (this *Value) AsString() string {
 		return ""
 	case constv.TYPES_BINARY:
 		if rv, ok := this.val.([]byte); ok {
-			return string(rv)
+			return hex.EncodeToString(rv)
 		}
 		return ""
 	}
@@ -433,7 +442,12 @@ func (this *Value) AsBinary() []byte {
 	switch this.typ {
 	case constv.TYPES_STRING:
 		if rv, ok := this.val.(string); ok {
-			return []byte(rv)
+			bs, err := hex.DecodeString(rv)
+			if err != nil {
+				DoLog("hex.DecodeString fail - %s", err)
+				return nil
+			}
+			return bs
 		}
 		return nil
 	case constv.TYPES_BINARY:
@@ -507,9 +521,13 @@ func (this *ValueMap) GetData() map[string]*Value {
 }
 
 func (this *ValueMap) ToMap() map[string]interface{} {
+	return this.ConvertMap(noConverter)
+}
+
+func (this *ValueMap) ConvertMap(dc DataConverter) map[string]interface{} {
 	r := make(map[string]interface{})
 	for k, v := range this.data {
-		r[k] = v.ToValue()
+		r[k] = v.ConvertValue(dc)
 	}
 	return r
 }
@@ -687,9 +705,13 @@ func (this *ValueArray) GetData() []*Value {
 }
 
 func (this *ValueArray) ToArray() []interface{} {
+	return this.ConvertArray(noConverter)
+}
+
+func (this *ValueArray) ConvertArray(dc DataConverter) []interface{} {
 	r := make([]interface{}, len(this.data))
 	for i, v := range this.data {
-		r[i] = v.ToValue()
+		r[i] = v.ConvertValue(dc)
 	}
 	return r
 }

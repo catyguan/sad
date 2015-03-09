@@ -1,14 +1,9 @@
 package httpserver
 
 import (
-	sccore "bma/servicecall/core"
 	"net/http"
 	"strings"
 )
-
-type ServiceObject interface {
-	GetMethod(name string) sccore.ServiceMethod
-}
 
 type ServiceDispatch func(r *http.Request) (string, string, error)
 

@@ -3,6 +3,7 @@ package httpclient
 import (
 	"bma/servicecall/constv"
 	sccore "bma/servicecall/core"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -51,19 +52,28 @@ func newHttpClient(dl time.Time) *http.Client {
 type HttpDriver struct {
 }
 
+func jsonConverter(typ int8, val interface{}) interface{} {
+	if typ == constv.TYPES_BINARY && val != nil {
+		if bs, ok := val.([]byte); ok {
+			return hex.EncodeToString(bs)
+		}
+	}
+	return val
+}
+
 func (this *HttpDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
 	var reqm map[string]interface{}
 	if req == nil {
 		reqm = make(map[string]interface{})
 	} else {
-		reqm = req.ToMap()
+		reqm = req.ConvertMap(jsonConverter)
 	}
 
 	var ctxm map[string]interface{}
 	if ctx == nil {
 		ctxm = make(map[string]interface{})
 	} else {
-		ctxm = ctx.ToMap()
+		ctxm = ctx.ConvertMap(jsonConverter)
 	}
 	opt := addr.GetOption()
 

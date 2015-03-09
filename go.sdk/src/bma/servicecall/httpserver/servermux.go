@@ -18,7 +18,7 @@ import (
 type ServiceCallMux struct {
 	dispather ServiceDispatch
 	lock      sync.RWMutex
-	services  map[string]ServiceObject
+	services  map[string]sccore.ServiceObject
 	methods   map[string]map[string]sccore.ServiceMethod
 	trans     map[string]*HttpServicePeer
 	transSeed int64
@@ -36,11 +36,11 @@ func (this *ServiceCallMux) SetDispatcher(dis ServiceDispatch) {
 	this.dispather = dis
 }
 
-func (this *ServiceCallMux) SetServiceObject(name string, so ServiceObject) {
+func (this *ServiceCallMux) SetServiceObject(name string, so sccore.ServiceObject) {
 	this.lock.Lock()
 	defer this.lock.Unlock()
 	if this.services == nil {
-		this.services = make(map[string]ServiceObject)
+		this.services = make(map[string]sccore.ServiceObject)
 	}
 	this.services[name] = so
 }
@@ -182,7 +182,7 @@ func (this *HttpServicePeer) BeginTransaction() (string, error) {
 
 	mux := this.mux
 	seq := atomic.AddUint32(&mux.transSeq, 1)
-	s := fmt.Sprintf("%d%d", mux.transSeed, seq)
+	s := fmt.Sprintf("%d_%d", mux.transSeed, seq)
 	h := md5.New()
 	io.WriteString(h, s)
 	this.transId = fmt.Sprintf("%x", h.Sum(nil))

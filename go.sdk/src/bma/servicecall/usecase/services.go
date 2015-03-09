@@ -15,6 +15,16 @@ func dumpSM(req *core.Request, ctx *core.Context) {
 	fmt.Println("Deadline: ", ctx.GetLong("Deadline"))
 }
 
+func SM_Echo(peer core.ServicePeer, req *core.Request, ctx *core.Context) error {
+	dumpSM(req, ctx)
+
+	reqm := req.ToMap()
+	a := core.NewAnswer()
+	a.SureResult().Put("Data", reqm)
+	peer.WriteAnswer(a, nil)
+	return nil
+}
+
 func SM_Hello(peer core.ServicePeer, req *core.Request, ctx *core.Context) error {
 	dumpSM(req, ctx)
 

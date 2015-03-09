@@ -1,6 +1,9 @@
 package core
 
 import "fmt"
+import (
+	"bma/servicecall/constv"
+)
 
 type Request struct {
 	ValueMap
@@ -30,6 +33,14 @@ func CreateContext(data map[string]interface{}) *Context {
 	o := NewContext()
 	initValueMap(&o.ValueMap, data)
 	return o
+}
+
+func (this *Context) GetTransactioId() string {
+	return this.GetString(constv.KEY_TRANSACTION_ID)
+}
+
+func (this *Context) GetSessionId() string {
+	return this.GetString(constv.KEY_SESSION_ID)
 }
 
 type Answer struct {
@@ -129,4 +140,8 @@ func (this *Answer) SureContext() *ValueMap {
 
 func (this *Answer) SetContext(v *ValueMap) {
 	this.context = v
+}
+
+func (this *Answer) SetSessionId(v string) {
+	this.SureContext().Put(constv.KEY_SESSION_ID, v)
 }

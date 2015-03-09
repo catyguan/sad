@@ -27,4 +27,10 @@ type ServicePeer interface {
 	WriteAnswer(a *Answer, err error) error
 }
 
+type ServiceObject interface {
+	GetMethod(name string) ServiceMethod
+}
+
 type ServiceMethod func(peer ServicePeer, req *Request, ctx *Context) error
+
+type DataConverter func(typ int8, val interface{}) interface{}

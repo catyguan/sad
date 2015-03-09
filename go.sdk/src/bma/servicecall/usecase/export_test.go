@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func T2estExportImport(t *testing.T) {
+func TestExportImport(t *testing.T) {
 	initTest()
 
 	manager := sccore.NewManager("test")
@@ -41,13 +41,22 @@ func T2estExportImport(t *testing.T) {
 			return
 		}
 	}
+	stm := cl.Export()
+
+	cl2 := manager.CreateClient()
+	defer cl2.Close()
+
+	cl2.BeginTransaction()
+	defer cl2.EndTransaction()
+
+	cl2.Import(stm)
 
 	if true {
 		req := sccore.NewRequest()
 		req.Put("User", "test")
 		req.Put("Password", key)
 		ctx := sccore.NewContext()
-		answer, err := cl.Invoke(addr, req, ctx)
+		answer, err := cl2.Invoke(addr, req, ctx)
 		if err != nil {
 			t.Errorf("invoke fail - %s", err)
 			return
