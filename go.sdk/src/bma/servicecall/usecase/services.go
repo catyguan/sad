@@ -25,6 +25,15 @@ func SM_Echo(peer core.ServicePeer, req *core.Request, ctx *core.Context) error 
 	return nil
 }
 
+func SM_OK(peer core.ServicePeer, req *core.Request, ctx *core.Context) error {
+	dumpSM(req, ctx)
+
+	a := core.NewAnswer()
+	a.SetStatus(constv.STATUS_OK)
+	peer.WriteAnswer(a, nil)
+	return nil
+}
+
 func SM_Hello(peer core.ServicePeer, req *core.Request, ctx *core.Context) error {
 	dumpSM(req, ctx)
 
@@ -135,5 +144,25 @@ func SM_Login(peer core.ServicePeer, req *core.Request, ctx *core.Context) error
 		peer.WriteAnswer(a, nil)
 	}
 
+	return nil
+}
+
+func SM_Async(peer core.ServicePeer, req *core.Request, ctx *core.Context) error {
+	dumpSM(req, ctx)
+	err := peer.SendAsync(ctx, nil, 1*time.Minute)
+	if err != nil {
+		core.DoLog("SendAsync fail - %s", err)
+		return nil
+	}
+
+	sleepTime := req.GetInt("sleep")
+	if sleepTime <= 0 {
+		sleepTime = 5
+	}
+	time.Sleep(time.Duration(sleepTime) * time.Second)
+
+	a := core.NewAnswer()
+	a.SureResult().Put("Word", "Hello Kitty")
+	peer.WriteAnswer(a, nil)
 	return nil
 }

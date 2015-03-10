@@ -62,6 +62,10 @@ func jsonConverter(typ int8, val interface{}) interface{} {
 }
 
 func (this *HttpDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
+	async := ctx.GetString(constv.KEY_ASYNC_MODE)
+	if async == "push" {
+		return nil, fmt.Errorf("http not support AsyncMode(%s)", async)
+	}
 	var reqm map[string]interface{}
 	if req == nil {
 		reqm = make(map[string]interface{})

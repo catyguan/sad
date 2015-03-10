@@ -87,6 +87,24 @@ func (this *Answer) IsProcessing() bool {
 	return false
 }
 
+func (this *Answer) IsAsync() bool {
+	st := this.GetStatus()
+	switch st {
+	case 202:
+		return true
+	}
+	return false
+}
+
+func (this *Answer) GetAsyncId() string {
+	aid := ""
+	rs := this.GetResult()
+	if rs != nil {
+		aid = rs.GetString(constv.KEY_ASYNC_ID)
+	}
+	return aid
+}
+
 func (this *Answer) IsDone() bool {
 	st := this.GetStatus()
 	switch st {

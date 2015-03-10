@@ -10,7 +10,7 @@ import (
 )
 
 func initTest() {
-	time.AfterFunc(5*time.Second, func() {
+	time.AfterFunc(20*time.Second, func() {
 		fmt.Println("os exit!!!")
 		os.Exit(-1)
 	})

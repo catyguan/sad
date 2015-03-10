@@ -15,20 +15,29 @@ import (
 	"time"
 )
 
+type pollAnswer struct {
+	done   bool
+	peer   *HttpServicePeer
+	answer *sccore.Answer
+	err    error
+	timer  *time.Timer
+}
+
 type ServiceCallMux struct {
 	dispather ServiceDispatch
 	lock      sync.RWMutex
 	services  map[string]sccore.ServiceObject
 	methods   map[string]map[string]sccore.ServiceMethod
 	trans     map[string]*HttpServicePeer
-	transSeed int64
-	transSeq  uint32
+	polls     map[string]*pollAnswer
+	seed      int64
+	seq       uint32
 }
 
 func NewServiceCallMux() *ServiceCallMux {
 	o := new(ServiceCallMux)
-	o.transSeed = time.Now().UnixNano()
-	o.transSeq = 0
+	o.seed = time.Now().UnixNano()
+	o.seq = 0
 	return o
 }
 
@@ -72,6 +81,14 @@ func (this *ServiceCallMux) Find(s, m string) (sccore.ServiceMethod, error) {
 		return ss.GetMethod(m), nil
 	}
 	return nil, nil
+}
+
+func (this *ServiceCallMux) createSeq() string {
+	seq := atomic.AddUint32(&this.seq, 1)
+	s := fmt.Sprintf("%d_%d", this.seed, seq)
+	h := md5.New()
+	io.WriteString(h, s)
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func (this *ServiceCallMux) getTrans(tid string) *HttpServicePeer {
@@ -139,6 +156,41 @@ func (this *ServiceCallMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	req := sccore.CreateRequest(qm)
 	ctx := sccore.CreateContext(cm)
 
+	aid := ctx.GetString(constv.KEY_ASYNC_ID)
+	if aid != "" {
+		var pa *pollAnswer
+		this.lock.RLock()
+		if this.polls != nil {
+			if pa2, ok := this.polls[aid]; ok {
+				if pa2.done {
+					pa = pa2
+				}
+			}
+		}
+		this.lock.RUnlock()
+
+		var peer *HttpServicePeer
+		var aa *sccore.Answer
+		var aerr error
+		if pa != nil {
+			this.lock.Lock()
+			delete(this.polls, aid)
+			this.lock.Unlock()
+			sccore.DoLog("'%s' poll success", aid)
+			pa.timer.Stop()
+			aa = pa.answer
+			aerr = pa.err
+			peer = pa.peer
+		} else {
+			sccore.DoLog("'%s' polling", aid)
+			aa = sccore.NewAnswer()
+			aa.SetStatus(constv.STATUS_ASYNC)
+			aa.SureResult().Put(constv.KEY_ASYNC_ID, aid)
+		}
+		doAnswer(peer, w, aa, aerr)
+		return
+	}
+
 	end := make(chan bool)
 	transId := ctx.GetString(constv.KEY_TRANSACTION_ID)
 	if transId != "" {
@@ -169,6 +221,7 @@ type HttpServicePeer struct {
 	mux     *ServiceCallMux
 	w       http.ResponseWriter
 	writed  bool
+	asyncId string
 	transId string
 	ch      chan *reqInfo
 	end     chan bool
@@ -181,11 +234,7 @@ func (this *HttpServicePeer) BeginTransaction() (string, error) {
 	this.ch = make(chan *reqInfo, 1)
 
 	mux := this.mux
-	seq := atomic.AddUint32(&mux.transSeq, 1)
-	s := fmt.Sprintf("%d_%d", mux.transSeed, seq)
-	h := md5.New()
-	io.WriteString(h, s)
-	this.transId = fmt.Sprintf("%x", h.Sum(nil))
+	this.transId = mux.createSeq()
 
 	mux.lock.Lock()
 	defer mux.lock.Unlock()
@@ -228,14 +277,7 @@ func (this *HttpServicePeer) ReadRequest(waitTime time.Duration) (*sccore.Reques
 	}
 }
 
-func (this *HttpServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
-	if this.writed {
-		return fmt.Errorf("HttpServicePeer already answer")
-	}
-	if this.w == nil {
-		return fmt.Errorf("HttpServicePeer break")
-	}
-	sccore.DoLog("writeAnswer -> %v, %v", err, a)
+func doAnswer(this *HttpServicePeer, w http.ResponseWriter, a *sccore.Answer, err error) error {
 	if err != nil {
 		if a == nil {
 			a = sccore.NewAnswer()
@@ -248,7 +290,7 @@ func (this *HttpServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
 	if sc <= 0 {
 		a.SetStatus(200)
 	}
-	if this.transId != "" {
+	if this != nil && this.transId != "" {
 		a.SureContext().Put(constv.KEY_TRANSACTION_ID, this.transId)
 	}
 	m["Status"] = a.GetStatus()
@@ -268,10 +310,38 @@ func (this *HttpServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
 	if err1 != nil {
 		return err1
 	}
-	this.w.Write(bs)
+	_, err2 := w.Write(bs)
+	return err2
+}
+
+func (this *HttpServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
+	if this.asyncId != "" {
+		mux := this.mux
+		mux.lock.RLock()
+		pa := mux.polls[this.asyncId]
+		mux.lock.RUnlock()
+		if pa != nil {
+			pa.answer = a
+			pa.err = err
+			pa.done = true
+			sccore.DoLog("async answer '%s'", this.asyncId)
+		} else {
+			sccore.DoLog("miss async '%s'", this.asyncId)
+		}
+		this.asyncId = ""
+		return nil
+	}
+	if this.writed {
+		return fmt.Errorf("HttpServicePeer already answer")
+	}
+	if this.w == nil {
+		return fmt.Errorf("HttpServicePeer break")
+	}
+	sccore.DoLog("writeAnswer -> %v, %v", err, a)
+	err2 := doAnswer(this, this.w, a, err)
 	this.writed = true
 	close(this.end)
-	return nil
+	return err2
 }
 
 func (this *HttpServicePeer) Post(end chan bool, w http.ResponseWriter, req *sccore.Request, ctx *sccore.Context) {
@@ -289,4 +359,49 @@ func (this *HttpServicePeer) Post(end chan bool, w http.ResponseWriter, req *scc
 	ri.req = req
 	ri.ctx = ctx
 	this.ch <- ri
+}
+
+func (this *HttpServicePeer) SendAsync(ctx *sccore.Context, result *sccore.ValueMap, timeout time.Duration) error {
+	async := ctx.GetString(constv.KEY_ASYNC_MODE)
+	switch async {
+	case "", "poll":
+		mux := this.mux
+		aid := mux.createSeq()
+		pa := new(pollAnswer)
+		pa.done = false
+		pa.peer = this
+		pa.answer = nil
+		pa.err = nil
+		pa.timer = time.AfterFunc(timeout, func() {
+			mux.lock.Lock()
+			defer mux.lock.Unlock()
+			if mux.polls != nil {
+				if _, ok := mux.polls[aid]; ok {
+					delete(mux.polls, aid)
+					sccore.DoLog("async poll(%s) wait timeout", aid)
+				}
+			}
+		})
+		mux.lock.Lock()
+		if mux.polls == nil {
+			mux.polls = make(map[string]*pollAnswer)
+		}
+		mux.polls[aid] = pa
+		mux.lock.Unlock()
+
+		a := sccore.NewAnswer()
+		a.SetStatus(constv.STATUS_ASYNC)
+		if result == nil {
+			result = sccore.NewValueMap(nil)
+		}
+		result.Put(constv.KEY_ASYNC_ID, aid)
+		a.SetResult(result)
+		this.WriteAnswer(a, nil)
+		this.asyncId = aid
+		return nil
+	default:
+		err := fmt.Errorf("HttpServicePeer not support AsyncMode(%s)", async)
+		this.WriteAnswer(nil, err)
+		return err
+	}
 }

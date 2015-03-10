@@ -1,6 +1,9 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 import (
 	"sync/atomic"
 )
@@ -33,6 +36,9 @@ type Manager struct {
 }
 
 func NewManager(n string) *Manager {
+	if n == "" {
+		n = fmt.Sprintf("goscm%d", time.Now().UnixNano())
+	}
 	o := new(Manager)
 	o.name = n
 	return o

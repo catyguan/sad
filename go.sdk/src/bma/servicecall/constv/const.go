@@ -3,7 +3,7 @@ package constv
 const (
 	STATUS_CONTINUE   = 100
 	STATUS_DONE       = 200
-	STATUS_SYNC       = 202
+	STATUS_ASYNC      = 202
 	STATUS_OK         = 204
 	STATUS_REDIRECT   = 302
 	STATUS_INVALID    = 400
@@ -34,4 +34,6 @@ const (
 	KEY_REQ_ID         = "ReqId"
 	KEY_TRANSACTION_ID = "TransactionId"
 	KEY_SESSION_ID     = "SessionId"
+	KEY_ASYNC_MODE     = "AsyncMode"
+	KEY_ASYNC_ID       = "AsyncId"
 )

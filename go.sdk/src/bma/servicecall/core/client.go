@@ -154,3 +154,31 @@ func (this *Client) Import(data map[string]interface{}) error {
 	}
 	return nil
 }
+
+func (this *Client) PollAnswer(addr *Address, an *Answer, ctx *Context, endTime time.Time, sleepDur time.Duration) (*Answer, bool, error) {
+	aid := an.GetAsyncId()
+	if aid == "" {
+		return nil, true, fmt.Errorf("miss AsyncId")
+	}
+	req := NewRequest()
+	ctx.Put(constv.KEY_ASYNC_ID, aid)
+	for {
+		if time.Now().After(endTime) {
+			return nil, false, nil
+		}
+		an2, err := this.Invoke(addr, req, ctx)
+		if err != nil {
+			return nil, true, err
+		}
+		if !an2.IsAsync() {
+			return an2, true, nil
+		}
+		if time.Now().After(endTime) {
+			return nil, false, nil
+		}
+		if sleepDur <= 0 {
+			return nil, false, nil
+		}
+		time.Sleep(sleepDur)
+	}
+}

@@ -25,6 +25,8 @@ type ServicePeer interface {
 
 	ReadRequest(waitTime time.Duration) (*Request, *Context, error)
 	WriteAnswer(a *Answer, err error) error
+
+	SendAsync(ctx *Context, result *ValueMap, timeout time.Duration) error
 }
 
 type ServiceObject interface {
@@ -34,3 +36,5 @@ type ServiceObject interface {
 type ServiceMethod func(peer ServicePeer, req *Request, ctx *Context) error
 
 type DataConverter func(typ int8, val interface{}) interface{}
+
+type ClientFactory func() *Client
