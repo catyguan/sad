@@ -24,20 +24,22 @@ type pollAnswer struct {
 }
 
 type ServiceCallMux struct {
-	dispather ServiceDispatch
-	lock      sync.RWMutex
-	services  map[string]sccore.ServiceObject
-	methods   map[string]map[string]sccore.ServiceMethod
-	trans     map[string]*HttpServicePeer
-	polls     map[string]*pollAnswer
-	seed      int64
-	seq       uint32
+	dispather     ServiceDispatch
+	lock          sync.RWMutex
+	services      map[string]sccore.ServiceObject
+	methods       map[string]map[string]sccore.ServiceMethod
+	trans         map[string]*HttpServicePeer
+	polls         map[string]*pollAnswer
+	seed          int64
+	seq           uint32
+	clientFactory sccore.ClientFactory
 }
 
-func NewServiceCallMux() *ServiceCallMux {
+func NewServiceCallMux(fac sccore.ClientFactory) *ServiceCallMux {
 	o := new(ServiceCallMux)
 	o.seed = time.Now().UnixNano()
 	o.seq = 0
+	o.clientFactory = fac
 	return o
 }
 
@@ -212,19 +214,30 @@ func (this *ServiceCallMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	<-end
 }
 
+func (this *ServiceCallMux) DoCallback(peer *HttpServicePeer, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
+	if this.clientFactory == nil {
+		return nil, fmt.Errorf("clientFactory is nil")
+	}
+	cl := this.clientFactory()
+	defer cl.Close()
+	answer, err := cl.Invoke(peer.callback, req, ctx)
+	return answer, err
+}
+
 type reqInfo struct {
 	req *sccore.Request
 	ctx *sccore.Context
 }
 
 type HttpServicePeer struct {
-	mux     *ServiceCallMux
-	w       http.ResponseWriter
-	writed  bool
-	asyncId string
-	transId string
-	ch      chan *reqInfo
-	end     chan bool
+	mux      *ServiceCallMux
+	w        http.ResponseWriter
+	mode     int // 0-normal, 1-writed, 2-poll, 3-callback
+	asyncId  string
+	callback *sccore.Address
+	transId  string
+	ch       chan *reqInfo
+	end      chan bool
 }
 
 func (this *HttpServicePeer) BeginTransaction() (string, error) {
@@ -315,7 +328,11 @@ func doAnswer(this *HttpServicePeer, w http.ResponseWriter, a *sccore.Answer, er
 }
 
 func (this *HttpServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
-	if this.asyncId != "" {
+	switch this.mode {
+	case 2:
+		if this.asyncId == "" {
+			return fmt.Errorf("poll mode, asyncId empty")
+		}
 		mux := this.mux
 		mux.lock.RLock()
 		pa := mux.polls[this.asyncId]
@@ -330,18 +347,34 @@ func (this *HttpServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
 		}
 		this.asyncId = ""
 		return nil
-	}
-	if this.writed {
+	case 3:
+		var req *sccore.Request
+		if err != nil {
+			am := make(map[string]interface{})
+			am["Status"] = constv.STATUS_ERROR
+			am["Message"] = err.Error()
+			req = sccore.CreateRequest(am)
+		} else {
+			am := a.ToMap()
+			req = sccore.CreateRequest(am)
+		}
+		ctx := sccore.NewContext()
+		sccore.DoLog("callback invoke -> %v, %v", err, a)
+		an, err2 := this.mux.DoCallback(this, req, ctx)
+		sccore.DoLog("callback answer -> %v, %v", err2, an)
+		return err
+	case 1:
 		return fmt.Errorf("HttpServicePeer already answer")
+	default:
+		if this.w == nil {
+			return fmt.Errorf("HttpServicePeer break")
+		}
+		sccore.DoLog("writeAnswer -> %v, %v", err, a)
+		err2 := doAnswer(this, this.w, a, err)
+		this.mode = 1
+		close(this.end)
+		return err2
 	}
-	if this.w == nil {
-		return fmt.Errorf("HttpServicePeer break")
-	}
-	sccore.DoLog("writeAnswer -> %v, %v", err, a)
-	err2 := doAnswer(this, this.w, a, err)
-	this.writed = true
-	close(this.end)
-	return err2
 }
 
 func (this *HttpServicePeer) Post(end chan bool, w http.ResponseWriter, req *sccore.Request, ctx *sccore.Context) {
@@ -349,7 +382,7 @@ func (this *HttpServicePeer) Post(end chan bool, w http.ResponseWriter, req *scc
 		sccore.DoLog("post fail, chan nil")
 		return
 	}
-	this.writed = false
+	this.mode = 0
 	this.end = end
 	this.w = w
 	defer func() {
@@ -397,7 +430,23 @@ func (this *HttpServicePeer) SendAsync(ctx *sccore.Context, result *sccore.Value
 		result.Put(constv.KEY_ASYNC_ID, aid)
 		a.SetResult(result)
 		this.WriteAnswer(a, nil)
+		this.mode = 2
 		this.asyncId = aid
+		return nil
+	case "callback":
+		addrm := ctx.GetMap(constv.KEY_CALLBACK)
+		if addrm == nil {
+			err0 := fmt.Errorf("HttpServicePeer Async callback miss address")
+			this.WriteAnswer(nil, err0)
+			return err0
+		}
+		this.callback = sccore.CreateAddressFromValue(addrm)
+
+		a := sccore.NewAnswer()
+		a.SetStatus(constv.STATUS_ASYNC)
+		a.SetResult(result)
+		this.WriteAnswer(a, nil)
+		this.mode = 3
 		return nil
 	default:
 		err := fmt.Errorf("HttpServicePeer not support AsyncMode(%s)", async)

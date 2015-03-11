@@ -57,7 +57,9 @@ func NewAnswer() *Answer {
 
 func (this *Answer) ToMap() map[string]interface{} {
 	m := make(map[string]interface{})
-	m["Status"] = this.status
+	if this.status != 0 {
+		m["Status"] = this.status
+	}
 	if this.message != "" {
 		m["Message"] = this.message
 	}

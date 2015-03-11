@@ -15,6 +15,8 @@ type DriverFactory interface {
 	GetDriver(typ string) (Driver, error)
 }
 
+type ClientFactory func() *Client
+
 type ValueMapWalker func(k string, v *Value) (stop bool)
 
 type ValueArrayWalker func(idx int, v *Value) (stop bool)
@@ -36,5 +38,3 @@ type ServiceObject interface {
 type ServiceMethod func(peer ServicePeer, req *Request, ctx *Context) error
 
 type DataConverter func(typ int8, val interface{}) interface{}
-
-type ClientFactory func() *Client

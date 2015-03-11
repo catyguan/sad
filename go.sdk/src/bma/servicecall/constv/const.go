@@ -36,4 +36,5 @@ const (
 	KEY_SESSION_ID     = "SessionId"
 	KEY_ASYNC_MODE     = "AsyncMode"
 	KEY_ASYNC_ID       = "AsyncId"
+	KEY_CALLBACK       = "Callback"
 )

@@ -85,3 +85,13 @@ func (this *Address) String() string {
 	}
 	return buf.String()
 }
+
+func (this *Address) ToValueMap() *ValueMap {
+	vm := NewValueMap(nil)
+	vm.Put("Type", this.typ)
+	vm.Put("API", this.api)
+	if this.option != nil && this.option.Len() > 0 {
+		vm.Put("Option", this.option)
+	}
+	return vm
+}
