@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func T2estAsyncPoll(t *testing.T) {
+func TestAsyncPoll(t *testing.T) {
 	initTest()
 
 	manager := sccore.NewManager("test")
@@ -59,7 +59,7 @@ func T2estAsyncPoll(t *testing.T) {
 	}
 }
 
-func TestAsyncCallback(t *testing.T) {
+func T2estAsyncCallback(t *testing.T) {
 	initTest()
 
 	manager := sccore.NewManager("test")

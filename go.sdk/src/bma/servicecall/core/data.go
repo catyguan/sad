@@ -55,6 +55,15 @@ func NewAnswer() *Answer {
 	return o
 }
 
+func Error2Answer(a *Answer, err error) *Answer {
+	if a == nil {
+		a = NewAnswer()
+	}
+	a.SetStatus(500)
+	a.SetMessage(err.Error())
+	return a
+}
+
 func (this *Answer) ToMap() map[string]interface{} {
 	m := make(map[string]interface{})
 	if this.status != 0 {

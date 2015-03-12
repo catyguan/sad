@@ -1,14 +1,13 @@
-package httpserver
+package sockserver
 
 import (
 	"bma/servicecall/constv"
 	sccore "bma/servicecall/core"
+	"bma/servicecall/sockcore"
 	"crypto/md5"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"strings"
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,18 +15,16 @@ import (
 
 type pollAnswer struct {
 	done   bool
-	peer   *HttpServicePeer
+	peer   *SocketServicePeer
 	answer *sccore.Answer
 	err    error
 	timer  *time.Timer
 }
 
 type ServiceCallMux struct {
-	dispather     ServiceDispatch
 	lock          sync.RWMutex
 	services      map[string]sccore.ServiceObject
 	methods       map[string]map[string]sccore.ServiceMethod
-	trans         map[string]*HttpServicePeer
 	polls         map[string]*pollAnswer
 	seed          int64
 	seq           uint32
@@ -40,10 +37,6 @@ func NewServiceCallMux(fac sccore.ClientFactory) *ServiceCallMux {
 	o.seq = 0
 	o.clientFactory = fac
 	return o
-}
-
-func (this *ServiceCallMux) SetDispatcher(dis ServiceDispatch) {
-	this.dispather = dis
 }
 
 func (this *ServiceCallMux) SetServiceObject(name string, so sccore.ServiceObject) {
@@ -92,70 +85,55 @@ func (this *ServiceCallMux) createSeq() string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func (this *ServiceCallMux) getTrans(tid string) *HttpServicePeer {
-	this.lock.RLock()
-	defer this.lock.RUnlock()
-	if this.trans == nil {
-		return nil
+func (this *ServiceCallMux) Run(conn net.Conn) {
+	defer func() {
+		recover()
+		conn.Close()
+	}()
+	for {
+		err := this.ServeSocket(conn)
+		if err != nil {
+			return
+		}
 	}
-	return this.trans[tid]
 }
 
-func (this *ServiceCallMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	err0 := r.ParseForm()
-	if err0 != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
+func (this *ServiceCallMux) ServeSocket(conn net.Conn) error {
+	mr := sockcore.NewMessageReader(conn)
+	mid, s, m, req, ctx, errR := mr.NextRequest()
+	if errR != nil {
+		sccore.DoLog("next Request fail - %s", errR)
+		return errR
 	}
-	dis := this.dispather
-	if dis == nil {
-		dis = DefaultServiceDispatch
+	if s == "" || m == "" {
+		err := fmt.Errorf("address(%s:%s) empty", s, m)
+		sccore.DoLog("read Request fail - %s", err)
+		return err
 	}
-	uri := r.RequestURI
-	s, m, err1 := dis(r)
-	sccore.DoLog("%s -> %s:%s", uri, s, m)
-	if err1 != nil {
-		http.Error(w, fmt.Sprintf("dispatch service fail - %s", err1), http.StatusInternalServerError)
-		return
+	if req == nil {
+		req = sccore.NewRequest()
 	}
+	if ctx == nil {
+		ctx = sccore.NewContext()
+	}
+
+	peer := new(SocketServicePeer)
+	peer.mux = this
+	peer.conn = conn
+	sccore.DoLog("call -> %s:%s", s, m)
+
 	servm, err2 := this.Find(s, m)
 	if err2 != nil {
-		http.Error(w, fmt.Sprintf("find service method fail - %s", err2), http.StatusInternalServerError)
-		return
+		err3 := fmt.Errorf("find service method fail - %s", err2)
+		peer.doAnswer(conn, mid, nil, err3)
+		return err3
 	}
 	sccore.DoLog("%s:%s -> %v", s, m, servm)
 	if servm == nil {
-		http.Error(w, fmt.Sprintf("service(%s:%s) not found", s, m), http.StatusNotFound)
-		return
+		err3 := fmt.Errorf("service(%s:%s) not found", s, m)
+		peer.doAnswer(conn, mid, nil, err3)
+		return err3
 	}
-
-	qv := r.PostFormValue("q")
-	qm := make(map[string]interface{})
-	qd := json.NewDecoder(strings.NewReader(qv))
-	qd.UseNumber()
-	err3 := qd.Decode(&qm)
-	if err3 != nil {
-		http.Error(w, fmt.Sprintf("decode request fail - %s", err3), http.StatusInternalServerError)
-		return
-	}
-
-	cv := r.PostFormValue("c")
-	cm := make(map[string]interface{})
-	cd := json.NewDecoder(strings.NewReader(cv))
-	cd.UseNumber()
-	err4 := cd.Decode(&cm)
-	if err4 != nil {
-		http.Error(w, fmt.Sprintf("decode context fail - %s", err4), http.StatusInternalServerError)
-		return
-	}
-
-	sccore.DoLog("Q : %v", qv)
-	sccore.DoLog("C : %v", cv)
-	sccore.DoLog("QM : %v", qm)
-	sccore.DoLog("CM : %v", cm)
-
-	req := sccore.CreateRequest(qm)
-	ctx := sccore.CreateContext(cm)
 
 	aid := ctx.GetString(constv.KEY_ASYNC_ID)
 	if aid != "" {
@@ -170,50 +148,37 @@ func (this *ServiceCallMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		this.lock.RUnlock()
 
-		var peer *HttpServicePeer
-		var aa *sccore.Answer
-		var aerr error
 		if pa != nil {
 			this.lock.Lock()
 			delete(this.polls, aid)
 			this.lock.Unlock()
 			sccore.DoLog("'%s' poll success", aid)
 			pa.timer.Stop()
-			aa = pa.answer
-			aerr = pa.err
-			peer = pa.peer
+			aa := pa.answer
+			aerr := pa.err
+			peer2 := pa.peer
+			peer2.doAnswer(conn, mid, aa, aerr)
 		} else {
 			sccore.DoLog("'%s' polling", aid)
-			aa = sccore.NewAnswer()
+			aa := sccore.NewAnswer()
 			aa.SetStatus(constv.STATUS_ASYNC)
 			aa.SureResult().Put(constv.KEY_ASYNC_ID, aid)
+			peer.doAnswer(conn, mid, aa, nil)
 		}
-		doAnswer(peer, w, aa, aerr)
-		return
+		return nil
 	}
+	peer.messageId = mid
 
-	end := make(chan bool)
-	transId := ctx.GetString(constv.KEY_TRANSACTION_ID)
-	if transId != "" {
-		peer := this.getTrans(transId)
-		peer.Post(end, w, req, ctx)
-	} else {
-		peer := new(HttpServicePeer)
-		peer.mux = this
-		peer.w = w
-		peer.end = end
-		go func() {
-			err5 := servm(peer, req, ctx)
-			if err5 != nil {
-				http.Error(w, fmt.Sprintf("service fail - %s", err5), http.StatusInternalServerError)
-				return
-			}
-		}()
+	err5 := servm(peer, req, ctx)
+	if err5 != nil {
+		sccore.DoLog("service fail - %s", err5)
+		peer.doAnswer(conn, mid, nil, err5)
+		return err5
 	}
-	<-end
+	return nil
 }
 
-func (this *ServiceCallMux) DoCallback(peer *HttpServicePeer, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
+func (this *ServiceCallMux) DoCallback(peer *SocketServicePeer, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
 	if this.clientFactory == nil {
 		return nil, fmt.Errorf("clientFactory is nil")
 	}

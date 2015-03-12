@@ -149,20 +149,21 @@ func SM_Login(peer core.ServicePeer, req *core.Request, ctx *core.Context) error
 
 func SM_Async(peer core.ServicePeer, req *core.Request, ctx *core.Context) error {
 	dumpSM(req, ctx)
+	sleepTime := req.GetInt("sleep")
+	if sleepTime <= 0 {
+		sleepTime = 5
+	}
 	err := peer.SendAsync(ctx, nil, 1*time.Minute)
 	if err != nil {
 		core.DoLog("SendAsync fail - %s", err)
 		return nil
 	}
+	go func() {
+		time.Sleep(time.Duration(sleepTime) * time.Second)
 
-	sleepTime := req.GetInt("sleep")
-	if sleepTime <= 0 {
-		sleepTime = 5
-	}
-	time.Sleep(time.Duration(sleepTime) * time.Second)
-
-	a := core.NewAnswer()
-	a.SureResult().Put("Word", "Hello Kitty")
-	peer.WriteAnswer(a, nil)
+		a := core.NewAnswer()
+		a.SureResult().Put("Word", "Hello Kitty")
+		peer.WriteAnswer(a, nil)
+	}()
 	return nil
 }
