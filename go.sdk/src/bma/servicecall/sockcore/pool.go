@@ -39,12 +39,12 @@ func (this *poolConfig) Valid() error {
 type connItem struct {
 	conn     net.Conn
 	waitTime time.Time
+	pingTime time.Time
 }
 type dialPool struct {
-	config   poolConfig
-	wait     chan *connItem
-	pingTime time.Time
-	closed   chan bool
+	config poolConfig
+	wait   chan *connItem
+	closed chan bool
 }
 
 func newDialPool(cfg *poolConfig) *dialPool {
@@ -181,6 +181,7 @@ func (this *dialPool) idlePing() {
 
 			// check idle
 			idleDu := time.Duration(this.config.IdleMS) * time.Millisecond
+			pingDu := 15 * time.Second
 			l := len(this.wait)
 			// fmt.Println("do idleping", idleDu, l)
 			for i := 0; i < l; i++ {
@@ -193,9 +194,12 @@ func (this *dialPool) idlePing() {
 						sccore.DoLog("'%s' idle break", item.conn.RemoteAddr())
 						item.conn.Close()
 					} else {
-						// ping
-						if this.doPing(item.conn) {
-							this.put(item)
+						if now.Sub(item.pingTime) > pingDu {
+							// ping
+							if this.doPing(item.conn) {
+								item.pingTime = now
+								this.put(item)
+							}
 						}
 					}
 				default:
@@ -210,6 +214,7 @@ func (this *dialPool) idlePing() {
 }
 
 func (this *dialPool) doPing(conn net.Conn) bool {
+	// fmt.Println("do ping")
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
 	defer func() {
 		conn.SetDeadline(time.Time{})

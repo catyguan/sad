@@ -47,7 +47,7 @@ func T2estDialPool(t *testing.T) {
 	time.Sleep(time.Duration(5) * time.Second)
 }
 
-func T2estPoolIdlePing(t *testing.T) {
+func TestPoolIdlePing(t *testing.T) {
 
 	sccore.SetLogger(sccore.LoggerFmtPrint)
 
