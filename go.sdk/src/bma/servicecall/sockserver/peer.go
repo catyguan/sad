@@ -1,7 +1,10 @@
 package sockserver
 
 import (
+	"bma/servicecall/constv"
 	sccore "bma/servicecall/core"
+	"bma/servicecall/sockcore"
+	"fmt"
 	"net"
 	"time"
 )
@@ -20,90 +23,82 @@ func (this *SocketServicePeer) doAnswer(conn net.Conn, mid int32, a *sccore.Answ
 	if err != nil {
 		a = sccore.Error2Answer(a, err)
 	}
-	// m := make(map[string]interface{})
-	// sc := a.GetStatus()
-	// if sc <= 0 {
-	// 	a.SetStatus(200)
-	// }
-	// if this.transId != "" {
-	// 	a.SureContext().Put(constv.KEY_TRANSACTION_ID, this.transId)
-	// }
-	// m["Status"] = a.GetStatus()
-	// msg := a.GetMessage()
-	// if msg != "" {
-	// 	m["Message"] = msg
-	// }
-	// rs := a.GetResult()
-	// if rs != nil {
-	// 	m["Result"] = rs.ToMap()
-	// }
-	// ctx := a.GetContext()
-	// if ctx != nil {
-	// 	m["Context"] = ctx.ToMap()
-	// }
-	// bs, err1 := json.Marshal(m)
-	// if err1 != nil {
-	// 	return err1
-	// }
-	// _, err2 := w.Write(bs)
-	// return err2
-	return nil
+	sc := a.GetStatus()
+	if sc <= 0 {
+		a.SetStatus(200)
+	}
+	if this != nil && this.transId != "" {
+		a.SureContext().Put(constv.KEY_TRANSACTION_ID, this.transId)
+	}
+	mr := sockcore.NewMessageWriter(conn)
+	err2 := mr.SendAnswer(mid, a)
+	return err2
 }
 
 func (this *SocketServicePeer) BeginTransaction() (string, error) {
-	// if this.transId != "" {
-	// 	return "", fmt.Errorf("already begin transaction")
-	// }
-	// this.ch = make(chan *reqInfo, 1)
+	if this.transId != "" {
+		return "", fmt.Errorf("already begin transaction")
+	}
+	mux := this.mux
+	this.transId = mux.createSeq()
 
-	// mux := this.mux
-	// this.transId = mux.createSeq()
-
-	// mux.lock.Lock()
-	// defer mux.lock.Unlock()
-	// if mux.trans == nil {
-	// 	mux.trans = make(map[string]*SocketServicePeer)
-	// }
-	// mux.trans[this.transId] = this
-	// return this.transId, nil
-	return "", nil
+	mr := sockcore.NewMessageWriter(this.conn)
+	err1 := mr.WriteHeader(sockcore.MT_TRANSACTION, 1)
+	if err1 != nil {
+		return "", err1
+	}
+	err2 := sockcore.Coders.Bool.DoEncode(mr, true)
+	if err2 != nil {
+		return "", err2
+	}
+	err3 := mr.WriteEnd()
+	if err3 != nil {
+		return "", err3
+	}
+	return this.transId, nil
 }
 
 func (this *SocketServicePeer) EndTransaction() {
-	// if this.transId == "" {
-	// 	return
-	// }
-	// mux := this.mux
-	// if mux.trans == nil {
-	// 	return
-	// }
-	// mux.lock.Lock()
-	// defer mux.lock.Unlock()
-	// delete(mux.trans, this.transId)
-	// this.transId = ""
-	// close(this.ch)
-	// this.ch = nil
+	if this.transId == "" {
+		return
+	}
+	this.transId = ""
+
+	mr := sockcore.NewMessageWriter(this.conn)
+	err1 := mr.WriteHeader(sockcore.MT_TRANSACTION, 1)
+	if err1 != nil {
+		return
+	}
+	err2 := sockcore.Coders.Bool.DoEncode(mr, false)
+	if err2 != nil {
+		return
+	}
+	err3 := mr.WriteEnd()
+	if err3 != nil {
+		return
+	}
+	return
 }
 
 func (this *SocketServicePeer) ReadRequest(waitTime time.Duration) (*sccore.Request, *sccore.Context, error) {
-	// if this.ch == nil {
-	// 	return nil, nil, errors.New("not begin transaction")
-	// }
-	// timer := time.NewTimer(waitTime)
-	// select {
-	// case <-timer.C:
-	// 	return nil, nil, fmt.Errorf("timeout")
-	// case ri := <-this.ch:
-	// 	if ri == nil {
-	// 		return nil, nil, fmt.Errorf("closed")
-	// 	}
-	// 	return ri.req, ri.ctx, nil
-	// }
-	return nil, nil, nil
+	mux := this.mux
+	mr := sockcore.NewMessageReader(this.conn)
+	var msg sockcore.Message
+	this.conn.SetDeadline(time.Now().Add(waitTime))
+	defer func() {
+		this.conn.SetDeadline(time.Time{})
+	}()
+	err := mux.nextMessage(this.conn, mr, &msg)
+	if err != nil {
+		return nil, nil, err
+	}
+	this.mode = 0
+	this.messageId = msg.Id
+	return msg.Request, msg.Context, nil
 }
 
 func (this *SocketServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
-	// switch this.mode {
+	switch this.mode {
 	// case 2:
 	// 	if this.asyncId == "" {
 	// 		return fmt.Errorf("poll mode, asyncId empty")
@@ -138,19 +133,14 @@ func (this *SocketServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
 	// 	an, err2 := this.mux.DoCallback(this, req, ctx)
 	// 	sccore.DoLog("callback answer -> %v, %v", err2, an)
 	// 	return err
-	// case 1:
-	// 	return fmt.Errorf("SocketServicePeer already answer")
-	// default:
-	// 	if this.w == nil {
-	// 		return fmt.Errorf("SocketServicePeer break")
-	// 	}
-	// 	sccore.DoLog("writeAnswer -> %v, %v", err, a)
-	// 	err2 := doAnswer(this, this.w, a, err)
-	// 	this.mode = 1
-	// 	close(this.end)
-	// 	return err2
-	// }
-	return nil
+	case 1:
+		return fmt.Errorf("SocketServicePeer already answer")
+	default:
+		sccore.DoLog("writeAnswer -> %v, %v", err, a)
+		err2 := this.doAnswer(this.conn, this.messageId, a, err)
+		this.mode = 1
+		return err2
+	}
 }
 
 func (this *SocketServicePeer) SendAsync(ctx *sccore.Context, result *sccore.ValueMap, timeout time.Duration) error {

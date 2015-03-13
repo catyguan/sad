@@ -98,18 +98,47 @@ func (this *ServiceCallMux) Run(conn net.Conn) {
 	}
 }
 
+var pingRData = []byte{9, 0, 0, 1, 1, 0, 0, 0, 0}
+
+func (this *ServiceCallMux) nextMessage(conn net.Conn, mr *sockcore.MessageReader, msg *sockcore.Message) error {
+	for {
+		mt, errR := mr.NextMessage(msg)
+		if errR != nil {
+			return errR
+		}
+		switch mt {
+		case sockcore.MT_REQUEST:
+			return nil
+		case sockcore.MT_PING:
+			if !msg.BoolFlag {
+				_, err := conn.Write(pingRData)
+				if err != nil {
+					return err
+				}
+			}
+		default:
+			return fmt.Errorf("not support messge type(%d)", mt)
+		}
+	}
+}
+
 func (this *ServiceCallMux) ServeSocket(conn net.Conn) error {
 	mr := sockcore.NewMessageReader(conn)
-	mid, s, m, req, ctx, errR := mr.NextRequest()
+	var msg sockcore.Message
+	errR := this.nextMessage(conn, mr, &msg)
 	if errR != nil {
 		sccore.DoLog("next Request fail - %s", errR)
 		return errR
 	}
+	s, m := msg.Service, msg.Method
 	if s == "" || m == "" {
 		err := fmt.Errorf("address(%s:%s) empty", s, m)
 		sccore.DoLog("read Request fail - %s", err)
 		return err
 	}
+	mid := msg.Id
+	req := msg.Request
+	ctx := msg.Context
 	if req == nil {
 		req = sccore.NewRequest()
 	}

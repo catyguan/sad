@@ -36,6 +36,10 @@ func (this *SocketAPI) Valid() error {
 	return nil
 }
 
+func (this *SocketAPI) Key() string {
+	return fmt.Sprintf("%s:%s:%s", this.Type, this.Host, this.Port)
+}
+
 func ParseSocketAPI(s string) (*SocketAPI, error) {
 	ps := strings.SplitN(s, ":", 5)
 	if len(ps) != 5 {

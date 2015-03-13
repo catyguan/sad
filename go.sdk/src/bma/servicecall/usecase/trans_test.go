@@ -2,12 +2,18 @@ package usecase
 
 import (
 	sccore "bma/servicecall/core"
+	"bma/servicecall/sockcore"
 	"fmt"
 	"testing"
 )
 
-func T2estTransaction(t *testing.T) {
+func TestTransaction(t *testing.T) {
 	initTest()
+
+	pool := sockcore.SocketPool()
+	pool.InitPoolSize(3)
+	pool.Start()
+	defer pool.Close()
 
 	manager := sccore.NewManager("test")
 	cl := manager.CreateClient()
@@ -16,9 +22,8 @@ func T2estTransaction(t *testing.T) {
 	cl.BeginTransaction()
 	defer cl.EndTransaction()
 
-	url := "http://localhost:1080/test/login"
+	addr := maddr("test", "login")
 
-	addr := sccore.CreateAddress("http", url, nil)
 	key := ""
 	if true {
 		req := sccore.NewRequest()

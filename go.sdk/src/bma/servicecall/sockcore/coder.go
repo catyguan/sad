@@ -38,6 +38,9 @@ func (this LenBytesCoder) DoDecode(r DecodeReader, maxlen int32) ([]byte, error)
 	if l > maxlen {
 		return nil, fmt.Errorf("too large bytes block - %d/%d", l, maxlen)
 	}
+	if l == 0 {
+		return []byte{}, nil
+	}
 	p := make([]byte, l)
 	if l > 0 {
 		_, err = r.Read(p)
@@ -86,6 +89,9 @@ func (this LenStringCoder) DoDecode(r DecodeReader, maxlen int32) (string, error
 	}
 	if l > maxlen {
 		return "", fmt.Errorf("too large string block - %d/%d", l, maxlen)
+	}
+	if l == 0 {
+		return "", nil
 	}
 	p := make([]byte, l)
 	_, err = r.Read(p)

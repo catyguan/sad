@@ -14,6 +14,7 @@ type Client struct {
 	inTrans   bool
 	transId   string
 	sessionId string
+	props     map[string]interface{}
 }
 
 func (this *Client) CreateReqId() string {
@@ -104,7 +105,11 @@ func (this *Client) Invoke(addr *Address, req *Request, ctx *Context) (*Answer, 
 }
 
 func (this *Client) Close() {
-
+	for _, v := range this.props {
+		if c, ok := v.(Closable); ok {
+			c.Close()
+		}
+	}
 }
 
 func (this *Client) BeginTransaction() bool {
@@ -181,4 +186,26 @@ func (this *Client) PollAnswer(addr *Address, an *Answer, ctx *Context, endTime 
 		}
 		time.Sleep(sleepDur)
 	}
+}
+
+func (this *Client) SetProperty(n string, val interface{}) {
+	if this.props == nil {
+		this.props = make(map[string]interface{})
+	}
+	this.props[n] = val
+}
+
+func (this *Client) GetProperty(n string) (interface{}, bool) {
+	if this.props == nil {
+		return nil, false
+	}
+	r, ok := this.props[n]
+	return r, ok
+}
+
+func (this *Client) RemoveProperty(n string) {
+	if this.props == nil {
+		return
+	}
+	delete(this.props, n)
 }

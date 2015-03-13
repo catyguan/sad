@@ -54,6 +54,7 @@ func (this *MessageReader) Read(p []byte) (n int, err error) {
 	if this.h {
 		this.l -= int(n)
 	}
+	// fmt.Printf("READ -> %v\n", p[0:n])
 	return
 }
 
@@ -79,6 +80,7 @@ func (this *MessageReader) ReadByte() (b byte, err error) {
 	if this.h {
 		this.l -= 1
 	}
+	// fmt.Printf("READ -> %v\n", b)
 	return
 }
 
@@ -172,64 +174,118 @@ func (this *MessageReader) ReadAnswer() (int32, string, error) {
 	return st, msg, nil
 }
 
-func (this *MessageReader) NextRequest() (mid int32, s, m string, req *sccore.Request, ctx *sccore.Context, rErr error) {
+type Message struct {
+	Type byte
+	Id   int32
+	// Ping,Trasaction
+	BoolFlag bool
+	// Request
+	Service string
+	Method  string
+	Request *sccore.Request
+	Context *sccore.Context
+	// Answer
+	Answer *sccore.Answer
+}
+
+func (this *Message) Reset() {
+	this.Type = 0
+	this.Id = 0
+	this.BoolFlag = false
+	this.Service = ""
+	this.Method = ""
+	this.Request = nil
+	this.Context = nil
+	this.Answer = nil
+}
+
+func (this *MessageReader) NextMessage(msg *Message) (byte, error) {
+	msg.Reset()
 	for {
 		mt, err0 := this.Next()
 		if err0 != nil {
 			sccore.DoLog("conn read fail - %s", err0)
-			rErr = err0
-			return
+			return 0, err0
 		}
+		// sccore.DoLog("read line - %d", mt)
 		switch mt {
 		case MT_END:
-			break
+			if msg.Type == MT_ANSWER {
+				an := msg.Answer
+				if msg.Request != nil {
+					an.SetResult(&msg.Request.ValueMap)
+					msg.Request = nil
+				}
+				if msg.Context != nil {
+					an.SetContext(&msg.Context.ValueMap)
+					msg.Context = nil
+				}
+			}
+			sccore.DoLog("read message -> %d, %v", msg.Type, msg)
+			return msg.Type, nil
 		case MT_MESSAGE_ID:
 			v, err1 := this.ReadMessageId()
 			if err1 != nil {
 				sccore.DoLog("messageId read fail - %s", err1)
-				rErr = err1
-				return
+				return 0, err1
 			}
-			mid = v
-			sccore.DoLog("message id = %d", mid)
+			msg.Id = v
+		case MT_PING, MT_TRANSACTION:
+			v, err1 := Coders.Bool.DoDecode(this)
+			if err1 != nil {
+				sccore.DoLog("boolFlag read fail - %s", err1)
+				return 0, err1
+			}
+			msg.BoolFlag = v
+			msg.Type = mt
 		case MT_REQUEST:
+			msg.Type = mt
 			continue
 		case MT_ADDRESS:
-			var err1 error
-			s, m, err1 = this.ReadAddress()
+			s, m, err1 := this.ReadAddress()
 			if err1 != nil {
 				sccore.DoLog("messageId read fail - %s", err1)
-				rErr = err1
-				return
+				return 0, err1
 			}
+			msg.Service = s
+			msg.Method = m
 		case MT_DATA:
 			n, val, err1 := this.ReadData()
 			if err1 != nil {
 				sccore.DoLog("data read fail - %s", err1)
-				rErr = err1
-				return
+				return 0, err1
 			}
-			if req == nil {
-				req = sccore.NewRequest()
+			if msg.Request == nil {
+				msg.Request = sccore.NewRequest()
 			}
-			req.Set(n, val)
+			msg.Request.Set(n, val)
 		case MT_CONTEXT:
 			n, val, err1 := this.ReadContext()
 			if err1 != nil {
 				sccore.DoLog("context read fail - %s", err1)
-				rErr = err1
-				return
+				return 0, err1
 			}
-			if ctx == nil {
-				ctx = sccore.NewContext()
+			if msg.Context == nil {
+				msg.Context = sccore.NewContext()
 			}
-			ctx.Set(n, val)
+			msg.Context.Set(n, val)
+		case MT_ANSWER:
+			st, s, err1 := this.ReadAnswer()
+			if err1 != nil {
+				sccore.DoLog("answer read fail - %s", err1)
+				return 0, err1
+			}
+			msg.Type = mt
+			if msg.Answer == nil {
+				msg.Answer = sccore.NewAnswer()
+			}
+			msg.Answer.SetStatus(int(st))
+			msg.Answer.SetMessage(s)
 		default:
 			err1 := fmt.Errorf("unknow MessageType(%d)", mt)
 			sccore.DoLog("message read fail - %s", err1)
-			rErr = err1
-			return
+			return 0, err1
 		}
 	}
-	return
+
 }

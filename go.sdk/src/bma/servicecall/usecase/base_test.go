@@ -3,6 +3,8 @@ package usecase
 import (
 	sccore "bma/servicecall/core"
 	_ "bma/servicecall/httpclient"
+	_ "bma/servicecall/sockclient"
+	"bma/servicecall/sockcore"
 	"fmt"
 	"os"
 	"testing"
@@ -17,18 +19,28 @@ func initTest() {
 	sccore.SetLogger(sccore.LoggerGo)
 }
 
+func maddr(s, m string) *sccore.Address {
+	// typ := "http"
+	// api := fmt.Sprintf("http://localhost:1080/%s/%s", s, m)
+	typ := "socket"
+	api := fmt.Sprintf("tcp:localhost:1080:%s:%s", s, m)
+
+	return sccore.CreateAddress(typ, api, nil)
+}
+
 func T2estBase(t *testing.T) {
 	initTest()
+
+	pool := sockcore.SocketPool()
+	pool.InitPoolSize(3)
+	pool.Start()
+	defer pool.Close()
 
 	manager := sccore.NewManager("test")
 	cl := manager.CreateClient()
 	defer cl.Close()
 
-	// url := "http://api.myhost.com/test/hello"
-	// url := "http://cn.bing.com/"
-	url := "http://localhost:1080/test/hello"
-
-	addr := sccore.CreateAddress("http", url, nil)
+	addr := maddr("test", "hello")
 	req := sccore.NewRequest()
 	req.Put("word", "Kitty")
 	ctx := sccore.NewContext()
@@ -55,15 +67,16 @@ func T2estBase(t *testing.T) {
 func T2estBinary(t *testing.T) {
 	initTest()
 
+	pool := sockcore.SocketPool()
+	pool.InitPoolSize(3)
+	pool.Start()
+	defer pool.Close()
+
 	manager := sccore.NewManager("test")
 	cl := manager.CreateClient()
 	defer cl.Close()
 
-	// url := "http://api.myhost.com/test/hello"
-	// url := "http://cn.bing.com/"
-	url := "http://localhost:1080/test/echo"
-
-	addr := sccore.CreateAddress("http", url, nil)
+	addr := maddr("test", "echo")
 	req := sccore.NewRequest()
 	req.Put("binary", []byte("Kitty"))
 	ctx := sccore.NewContext()
@@ -91,17 +104,18 @@ func T2estBinary(t *testing.T) {
 func T2estAdd(t *testing.T) {
 	initTest()
 
+	pool := sockcore.SocketPool()
+	pool.InitPoolSize(3)
+	pool.Start()
+	defer pool.Close()
+
 	manager := sccore.NewManager("test")
 	cl := manager.CreateClient()
 	defer cl.Close()
 
-	// url := "http://api.myhost.com/test/hello"
-	// url := "http://cn.bing.com/"
-	url := "http://localhost:1080/test/add"
-
 	c := int32(0)
 	if true {
-		addr := sccore.CreateAddress("http", url, nil)
+		addr := maddr("test", "add")
 		req := sccore.NewRequest()
 		req.Put("a", 1)
 		req.Put("b", 2)
@@ -124,7 +138,7 @@ func T2estAdd(t *testing.T) {
 	}
 
 	if true {
-		addr := sccore.CreateAddress("http", url, nil)
+		addr := maddr("test", "add")
 		req := sccore.NewRequest()
 		req.Put("a", c)
 		req.Put("b", 3)

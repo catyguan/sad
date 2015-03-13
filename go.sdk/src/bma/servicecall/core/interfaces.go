@@ -4,7 +4,14 @@ import (
 	"time"
 )
 
+type Closable interface {
+	Close()
+}
+
 type InvokeContext interface {
+	SetProperty(n string, val interface{})
+	GetProperty(n string) (interface{}, bool)
+	RemoveProperty(n string)
 }
 
 type Driver interface {

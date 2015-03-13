@@ -22,7 +22,7 @@ func T2estDialPool(t *testing.T) {
 	addr := sccore.NewAddress()
 	addr.SetAPI("tcp:127.0.0.1:1080:test:hello")
 	f := func() {
-		key, conn, err := pool.GetSocket(addr, nil)
+		key, conn, err := pool.GetSocket(addr, nil, 0)
 		if err != nil {
 			fmt.Printf("GetSocket fail - %s\n", err)
 		}
@@ -64,7 +64,7 @@ func TestPoolIdlePing(t *testing.T) {
 
 	addr := sccore.NewAddress()
 	addr.SetAPI("tcp:127.0.0.1:1080:test:hello")
-	key, conn, err := pool.GetSocket(addr, nil)
+	key, conn, err := pool.GetSocket(addr, nil, 0)
 	if err != nil {
 		fmt.Printf("GetSocket fail - %s\n", err)
 	}

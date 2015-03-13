@@ -1,6 +1,18 @@
 package sockclient
 
-import sccore "bma/servicecall/core"
+import (
+	"bma/servicecall/constv"
+	sccore "bma/servicecall/core"
+	"bma/servicecall/sockcore"
+	"errors"
+	"net"
+	"sync/atomic"
+	"time"
+)
+
+var (
+	gMessageId int32
+)
 
 type SocketDriverFactory struct {
 }
@@ -18,139 +30,124 @@ func init() {
 type SocketDriver struct {
 }
 
+type useSocket struct {
+	trans map[string]net.Conn
+}
+
+func (this *useSocket) Close() {
+	pool := sockcore.SocketPool()
+	for k, conn := range this.trans {
+		pool.CloseSocket(k, conn)
+	}
+}
+
 func (this *SocketDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
 	// async := ctx.GetString(constv.KEY_ASYNC_MODE)
 	// if async == "push" {
 	// 	return nil, fmt.Errorf("http not support AsyncMode(%s)", async)
 	// }
-	// var reqm map[string]interface{}
-	// if req == nil {
-	// 	reqm = make(map[string]interface{})
-	// } else {
-	// 	reqm = req.ConvertMap(jsonConverter)
-	// }
+	pool := sockcore.SocketPool()
 
-	// var ctxm map[string]interface{}
-	// if ctx == nil {
-	// 	ctxm = make(map[string]interface{})
-	// } else {
-	// 	ctxm = ctx.ConvertMap(jsonConverter)
-	// }
+	sapi, errP := sockcore.ParseSocketAPI(addr.GetAPI())
+	if errP != nil {
+		return nil, errP
+	}
+
+	key := sapi.Key()
+	var conn net.Conn
+	var us *useSocket
+	so, ok := ictx.GetProperty("socket")
+	if ok {
+		us, ok = so.(*useSocket)
+		if ok {
+			conn = us.trans[key]
+		}
+	}
+
+	dltm := ctx.GetLong(constv.KEY_DEADLINE)
+	dl := time.Unix(dltm, 0)
+	closemode := 0
+	if conn == nil {
+		du := dl.Sub(time.Now())
+		if du <= 0 {
+			return nil, errors.New("timeout")
+		}
+		sccore.DoLog("'%s' connect...", sapi)
+		var errC error
+		key, conn, errC = pool.GetSocket(addr, sapi, du)
+		if errC != nil {
+			return nil, errC
+		}
+	} else {
+		sccore.DoLog("'%s' use trans socket", sapi)
+		closemode = 2
+	}
+
+	defer func() {
+		switch closemode {
+		case 0:
+			pool.ReturnSocket(key, conn)
+		case 1:
+			if us != nil {
+				delete(us.trans, key)
+			}
+			pool.CloseSocket(key, conn)
+		case 2:
+		}
+	}()
+
+	conn.SetDeadline(dl)
+	defer conn.SetDeadline(time.Time{})
+
 	// opt := addr.GetOption()
+	mw := sockcore.NewMessageWriter(conn)
 
-	// reqbs, errE0 := json.Marshal(reqm)
-	// if errE0 != nil {
-	// 	return nil, errE0
-	// }
-	// ctxbs, errE1 := json.Marshal(ctxm)
-	// if errE1 != nil {
-	// 	return nil, errE1
-	// }
+	sccore.DoLog("'%s' write request to '%s'", sapi, conn.RemoteAddr())
+	mid := atomic.AddInt32(&gMessageId, 1)
+	if mid <= 0 {
+		atomic.CompareAndSwapInt32(&gMessageId, mid, 0)
+		mid = atomic.AddInt32(&gMessageId, 1)
+	}
+	err2 := mw.SendRequest(mid, sapi.Service, sapi.Method, req, ctx)
+	if err2 != nil {
+		sccore.DoLog("'%s' fail '%s'", sapi, err2)
+		closemode = 1
+		return nil, err2
+	}
 
-	// var body io.Reader
-	// qurl := addr.GetAPI()
-
-	// data := make(url.Values)
-	// data.Add("q", string(reqbs))
-	// data.Add("c", string(ctxbs))
-
-	// method := "POST"
-	// body = strings.NewReader(data.Encode())
-
-	// hreq, err2 := http.NewRequest(method, qurl, body)
-	// if err2 != nil {
-	// 	return nil, err2
-	// }
-	// hreq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	// if opt != nil {
-	// 	host := opt.GetString("Host")
-	// 	if host != "" {
-	// 		hreq.Header.Set("Host", host)
-	// 	}
-	// 	hs := opt.GetMap("Headers")
-	// 	if hs != nil {
-	// 		hs.Walk(func(k string, v *sccore.Value) bool {
-	// 			s := v.AsString()
-	// 			if s != "" {
-	// 				hreq.Header.Set(k, s)
-	// 			}
-	// 			return false
-	// 		})
-	// 	}
-	// }
-	// dltm := ctx.GetLong(constv.KEY_DEADLINE)
-	// dl := time.Unix(dltm, 0)
-	// client := newHttpClient(dl)
-	// sccore.DoLog("'%s' start", qurl)
-
-	// hresp, err3 := client.Do(hreq)
-	// if err3 != nil {
-	// 	sccore.DoLog("'%s' fail '%s'", qurl, err3)
-	// 	return nil, err3
-	// }
-	// sccore.DoLog("'%s' end '%d'", qurl, hresp.StatusCode)
-	// defer hresp.Body.Close()
-	// respBody, err4 := ioutil.ReadAll(hresp.Body)
-	// if err4 != nil {
-	// 	return nil, err4
-	// }
-	// content := string(respBody)
-	// sccore.DoLog("'%s' --> %s", qurl, content)
-
-	// a := sccore.NewAnswer()
-
-	// switch hresp.StatusCode {
-	// case 200:
-	// 	m := make(map[string]interface{})
-	// 	err5 := json.Unmarshal(respBody, &m)
-	// 	if err5 != nil {
-	// 		return nil, fmt.Errorf("decode response content fail - %s", content)
-	// 	}
-	// 	mm := sccore.CreateValueMap(m)
-	// 	sc := mm.GetInt("Status")
-	// 	if sc == 0 {
-	// 		sc = 200
-	// 	}
-	// 	a.SetStatus(int(sc))
-	// 	msg := mm.GetString("Message")
-	// 	if msg == "" && sc == 200 {
-	// 		msg = "OK"
-	// 	}
-	// 	a.SetMessage(msg)
-	// 	rs := mm.GetMap("Result")
-	// 	a.SetResult(rs)
-	// 	actx := mm.GetMap("Context")
-	// 	a.SetContext(actx)
-	// case 301, 302:
-	// 	a.SetStatus(302)
-	// 	loc := hresp.Header.Get("Location")
-	// 	if loc == "" {
-	// 		a.SetStatus(502)
-	// 		a.SetMessage("miss redirect location")
-	// 	} else {
-	// 		rs := sccore.NewValueMap(nil)
-	// 		rs.Put("Type", NAME_DRIVER)
-	// 		rs.Put("API", loc)
-	// 		a.SetMessage("redirect")
-	// 		a.SetResult(rs)
-	// 	}
-	// case 400, 404:
-	// 	a.SetStatus(400)
-	// 	a.SetMessage(content)
-	// case 403:
-	// 	a.SetStatus(403)
-	// 	a.SetMessage(content)
-	// case 504:
-	// 	a.SetStatus(408)
-	// 	a.SetMessage(content)
-	// case 500:
-	// 	a.SetStatus(500)
-	// 	a.SetMessage(content)
-	// default:
-	// 	a.SetStatus(500)
-	// 	a.SetMessage(fmt.Sprintf("unknow response code '%d'", hresp.StatusCode))
-	// }
-	// return a, nil
-	return nil, nil
+	mr := sockcore.NewMessageReader(conn)
+	var msg sockcore.Message
+	for {
+		mt, errN := mr.NextMessage(&msg)
+		if errN != nil {
+			closemode = 1
+			return nil, errN
+		}
+		switch mt {
+		case sockcore.MT_PING:
+			// skip
+			sccore.DoLog("ping response(%v)", msg.BoolFlag)
+		case sockcore.MT_TRANSACTION:
+			// skip
+			sccore.DoLog("'%s' transaction(%v)", conn.RemoteAddr(), msg.BoolFlag)
+			if msg.BoolFlag {
+				closemode = 2
+				if us == nil {
+					us = new(useSocket)
+					us.trans = make(map[string]net.Conn)
+					ictx.SetProperty("socket", us)
+				}
+				us.trans[key] = conn
+			} else {
+				closemode = 0
+				if us != nil {
+					delete(us.trans, key)
+				}
+			}
+		case sockcore.MT_ANSWER:
+			return msg.Answer, nil
+		default:
+			sccore.DoLog("unknow message(%d) - (%v)", mt, &msg)
+		}
+	}
 }

@@ -97,6 +97,7 @@ func (this *dialPool) GetSocket(timeout time.Duration) (net.Conn, error) {
 				}
 				o.conn.Close()
 			default:
+				// fmt.Println("NewConnect")
 				return nil
 			}
 		}
@@ -112,10 +113,15 @@ func (this *dialPool) GetSocket(timeout time.Duration) (net.Conn, error) {
 }
 
 func (this *dialPool) ReturnSocket(conn net.Conn) {
+	now := time.Now()
 	o := new(connItem)
 	o.conn = conn
-	o.waitTime = time.Now()
-	this.put(o)
+	o.waitTime = now
+	o.pingTime = now
+	// fmt.Println("ReturnConnect")
+	if !this.put(o) {
+		// fmt.Println("ReturnFail")
+	}
 }
 
 func (this *dialPool) CloseSocket(conn net.Conn) {
@@ -156,7 +162,7 @@ func (this *dialPool) close() {
 	close(this.closed)
 }
 
-func (this *dialPool) put(item *connItem) {
+func (this *dialPool) put(item *connItem) bool {
 	defer func() {
 		if recover() != nil {
 			item.conn.Close()
@@ -164,8 +170,10 @@ func (this *dialPool) put(item *connItem) {
 	}()
 	select {
 	case this.wait <- item: // Put 2 in the channel unless it is full
+		return true
 	default:
 		item.conn.Close()
+		return false
 	}
 }
 
@@ -279,7 +287,7 @@ func (this *Pool) Close() {
 	}
 }
 
-func (this *Pool) GetSocket(addr *sccore.Address, api *SocketAPI) (string, net.Conn, error) {
+func (this *Pool) GetSocket(addr *sccore.Address, api *SocketAPI, timeout time.Duration) (string, net.Conn, error) {
 	if api == nil {
 		var err0 error
 		api, err0 = ParseSocketAPI(addr.GetAPI())
@@ -293,7 +301,7 @@ func (this *Pool) GetSocket(addr *sccore.Address, api *SocketAPI) (string, net.C
 	}
 
 	var dial *dialPool
-	key := fmt.Sprintf("%s:%s:%s", api.Type, api.Host, api.Port)
+	key := api.Key()
 	this.lock.RLock()
 	if this.dials != nil {
 		dial = this.dials[key]
@@ -312,9 +320,15 @@ func (this *Pool) GetSocket(addr *sccore.Address, api *SocketAPI) (string, net.C
 		cfg.Address = host
 		opt := addr.GetOption()
 		if opt != nil {
-			cfg.PoolSize = int(opt.GetInt("PoolSize"))
-			cfg.TimeoutMS = int(opt.GetInt("Timeout"))
-			cfg.IdleMS = int(opt.GetInt("Idle"))
+			if opt.Has("PoolSize") {
+				cfg.PoolSize = int(opt.GetInt("PoolSize"))
+			}
+			if opt.Has("Timeout") {
+				cfg.TimeoutMS = int(opt.GetInt("Timeout"))
+			}
+			if opt.Has("Idle") {
+				cfg.IdleMS = int(opt.GetInt("Idle"))
+			}
 		}
 
 		this.lock.Lock()
@@ -329,7 +343,10 @@ func (this *Pool) GetSocket(addr *sccore.Address, api *SocketAPI) (string, net.C
 		}
 		this.lock.Unlock()
 	}
-	conn, err2 := dial.GetSocket(time.Duration(this.config.TimeoutMS) * time.Millisecond)
+	if timeout <= 0 {
+		timeout = time.Duration(this.config.TimeoutMS) * time.Millisecond
+	}
+	conn, err2 := dial.GetSocket(timeout)
 	return key, conn, err2
 }
 
