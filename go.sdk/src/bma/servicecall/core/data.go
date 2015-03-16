@@ -20,6 +20,10 @@ func CreateRequest(data map[string]interface{}) *Request {
 	return o
 }
 
+func (this *Request) String() string {
+	return this.Dump()
+}
+
 type Context struct {
 	ValueMap
 }
@@ -41,6 +45,10 @@ func (this *Context) GetTransactioId() string {
 
 func (this *Context) GetSessionId() string {
 	return this.GetString(constv.KEY_SESSION_ID)
+}
+
+func (this *Context) String() string {
+	return this.Dump()
 }
 
 type Answer struct {
@@ -114,6 +122,10 @@ func (this *Answer) GetAsyncId() string {
 		aid = rs.GetString(constv.KEY_ASYNC_ID)
 	}
 	return aid
+}
+
+func (this *Answer) IsContinue() bool {
+	return this.GetStatus() == 100
 }
 
 func (this *Answer) IsDone() bool {

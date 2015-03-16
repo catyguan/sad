@@ -9,10 +9,10 @@ import (
 )
 
 var (
-	gDS map[string]DriverFactory
+	gDS map[string]Driver
 )
 
-func GetDriverFactory(typ string) DriverFactory {
+func GetDriver(typ string) Driver {
 	if gDS == nil {
 		return nil
 	}
@@ -23,9 +23,9 @@ func GetDriverFactory(typ string) DriverFactory {
 	return df
 }
 
-func InitDriverFactory(typ string, df DriverFactory) {
+func InitDriver(typ string, df Driver) {
 	if gDS == nil {
-		gDS = make(map[string]DriverFactory)
+		gDS = make(map[string]Driver)
 	}
 	gDS[typ] = df
 }
@@ -45,16 +45,13 @@ func NewManager(n string) *Manager {
 }
 
 func (this *Manager) CreateClient() *Client {
-	o := new(Client)
-	o.manager = this
-	o.id = atomic.AddUint32(&this.clientSeq, 1)
-	return o
+	return newClient(this, atomic.AddUint32(&this.clientSeq, 1))
 }
 
-func (this *Manager) GetDriver(addr *Address) (Driver, error) {
-	df := GetDriverFactory(addr.GetType())
+func (this *Manager) createConn(typ, api string) (ServiceConn, error) {
+	df := GetDriver(typ)
 	if df == nil {
-		return nil, fmt.Errorf("unknow driver(%s)", addr.GetType())
+		return nil, fmt.Errorf("unknow driver(%s)", typ)
 	}
-	return df.GetDriver(addr.GetAPI())
+	return df.CreateConn(typ, api)
 }

@@ -26,25 +26,29 @@ type HttpServicePeer struct {
 	end      chan bool
 }
 
-func (this *HttpServicePeer) BeginTransaction() (string, error) {
+func (this *HttpServicePeer) GetDriverType() string {
+	return "http"
+}
+
+func (this *HttpServicePeer) BeginTransaction() error {
 	if this.transId != "" {
-		return "", fmt.Errorf("already begin transaction")
+		return fmt.Errorf("already begin transaction")
 	}
 	this.ch = make(chan *reqInfo, 1)
 
 	mux := this.mux
-	this.transId = mux.createSeq()
+	this.transId = mux.serv.CreateSeq()
 
-	mux.lock.Lock()
-	defer mux.lock.Unlock()
+	mux.serv.Lock.Lock()
+	defer mux.serv.Lock.Unlock()
 	if mux.trans == nil {
 		mux.trans = make(map[string]*HttpServicePeer)
 	}
 	mux.trans[this.transId] = this
-	return this.transId, nil
+	return nil
 }
 
-func (this *HttpServicePeer) EndTransaction() {
+func (this *HttpServicePeer) endTransaction() {
 	if this.transId == "" {
 		return
 	}
@@ -52,8 +56,8 @@ func (this *HttpServicePeer) EndTransaction() {
 	if mux.trans == nil {
 		return
 	}
-	mux.lock.Lock()
-	defer mux.lock.Unlock()
+	mux.serv.Lock.Lock()
+	defer mux.serv.Lock.Unlock()
 	delete(mux.trans, this.transId)
 	this.transId = ""
 	close(this.ch)
@@ -116,17 +120,7 @@ func (this *HttpServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
 			return fmt.Errorf("poll mode, asyncId empty")
 		}
 		mux := this.mux
-		mux.lock.RLock()
-		pa := mux.polls[this.asyncId]
-		mux.lock.RUnlock()
-		if pa != nil {
-			pa.answer = a
-			pa.err = err
-			pa.done = true
-			sccore.DoLog("async answer '%s'", this.asyncId)
-		} else {
-			sccore.DoLog("miss async '%s'", this.asyncId)
-		}
+		mux.serv.SetPollAnswer(this.asyncId, a, err)
 		this.asyncId = ""
 		return nil
 	case 3:
@@ -142,7 +136,7 @@ func (this *HttpServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
 		}
 		ctx := sccore.NewContext()
 		sccore.DoLog("callback invoke -> %v, %v", err, a)
-		an, err2 := this.mux.DoCallback(this, req, ctx)
+		an, err2 := this.mux.serv.DoCallback(this.callback, req, ctx)
 		sccore.DoLog("callback answer -> %v, %v", err2, an)
 		return err
 	case 1:
@@ -150,6 +144,9 @@ func (this *HttpServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
 	default:
 		if this.w == nil {
 			return fmt.Errorf("HttpServicePeer break")
+		}
+		if this.transId != "" && a.GetStatus() != 100 {
+			this.endTransaction()
 		}
 		sccore.DoLog("writeAnswer -> %v, %v", err, a)
 		err2 := doAnswer(this, this.w, a, err)
@@ -181,28 +178,7 @@ func (this *HttpServicePeer) SendAsync(ctx *sccore.Context, result *sccore.Value
 	switch async {
 	case "", "poll":
 		mux := this.mux
-		aid := mux.createSeq()
-		pa := new(pollAnswer)
-		pa.done = false
-		pa.peer = this
-		pa.answer = nil
-		pa.err = nil
-		pa.timer = time.AfterFunc(timeout, func() {
-			mux.lock.Lock()
-			defer mux.lock.Unlock()
-			if mux.polls != nil {
-				if _, ok := mux.polls[aid]; ok {
-					delete(mux.polls, aid)
-					sccore.DoLog("async poll(%s) wait timeout", aid)
-				}
-			}
-		})
-		mux.lock.Lock()
-		if mux.polls == nil {
-			mux.polls = make(map[string]*pollAnswer)
-		}
-		mux.polls[aid] = pa
-		mux.lock.Unlock()
+		aid := mux.serv.CreatePollAnswer(timeout, this)
 
 		a := sccore.NewAnswer()
 		a.SetStatus(constv.STATUS_ASYNC)

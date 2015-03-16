@@ -3,98 +3,28 @@ package httpserver
 import (
 	"bma/servicecall/constv"
 	sccore "bma/servicecall/core"
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
-type pollAnswer struct {
-	done   bool
-	peer   *HttpServicePeer
-	answer *sccore.Answer
-	err    error
-	timer  *time.Timer
-}
-
 type ServiceCallMux struct {
-	dispather     ServiceDispatch
-	lock          sync.RWMutex
-	services      map[string]sccore.ServiceObject
-	methods       map[string]map[string]sccore.ServiceMethod
-	trans         map[string]*HttpServicePeer
-	polls         map[string]*pollAnswer
-	seed          int64
-	seq           uint32
-	clientFactory sccore.ClientFactory
+	dispather ServiceDispatch
+	serv      sccore.BaseServiceServ
+	sccore.ServiceMux
+	trans map[string]*HttpServicePeer
 }
 
 func NewServiceCallMux(fac sccore.ClientFactory) *ServiceCallMux {
 	o := new(ServiceCallMux)
-	o.seed = time.Now().UnixNano()
-	o.seq = 0
-	o.clientFactory = fac
+	o.serv.InitBaseServiceServ(fac)
 	return o
 }
 
-func (this *ServiceCallMux) SetDispatcher(dis ServiceDispatch) {
-	this.dispather = dis
-}
-
-func (this *ServiceCallMux) SetServiceObject(name string, so sccore.ServiceObject) {
-	this.lock.Lock()
-	defer this.lock.Unlock()
-	if this.services == nil {
-		this.services = make(map[string]sccore.ServiceObject)
-	}
-	this.services[name] = so
-}
-
-func (this *ServiceCallMux) SetServiceMethod(service string, method string, sm sccore.ServiceMethod) {
-	this.lock.Lock()
-	defer this.lock.Unlock()
-	if this.methods == nil {
-		this.methods = make(map[string]map[string]sccore.ServiceMethod)
-	}
-	s, ok := this.methods[service]
-	if !ok {
-		s = make(map[string]sccore.ServiceMethod)
-		this.methods[service] = s
-	}
-	s[method] = sm
-}
-
-func (this *ServiceCallMux) Find(s, m string) (sccore.ServiceMethod, error) {
-	this.lock.RLock()
-	defer this.lock.RUnlock()
-	if ms, ok := this.methods[s]; ok {
-		r := ms[m]
-		if r != nil {
-			return r, nil
-		}
-	}
-	if ss, ok := this.services[s]; ok {
-		return ss.GetMethod(m), nil
-	}
-	return nil, nil
-}
-
-func (this *ServiceCallMux) createSeq() string {
-	seq := atomic.AddUint32(&this.seq, 1)
-	s := fmt.Sprintf("%d_%d", this.seed, seq)
-	h := md5.New()
-	io.WriteString(h, s)
-	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
 func (this *ServiceCallMux) getTrans(tid string) *HttpServicePeer {
-	this.lock.RLock()
-	defer this.lock.RUnlock()
+	this.serv.Lock.RLock()
+	defer this.serv.Lock.RUnlock()
 	if this.trans == nil {
 		return nil
 	}
@@ -159,31 +89,15 @@ func (this *ServiceCallMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	aid := ctx.GetString(constv.KEY_ASYNC_ID)
 	if aid != "" {
-		var pa *pollAnswer
-		this.lock.RLock()
-		if this.polls != nil {
-			if pa2, ok := this.polls[aid]; ok {
-				if pa2.done {
-					pa = pa2
-				}
-			}
-		}
-		this.lock.RUnlock()
-
+		pa := this.serv.PollAsync(aid)
 		var peer *HttpServicePeer
 		var aa *sccore.Answer
 		var aerr error
 		if pa != nil {
-			this.lock.Lock()
-			delete(this.polls, aid)
-			this.lock.Unlock()
-			sccore.DoLog("'%s' poll success", aid)
-			pa.timer.Stop()
-			aa = pa.answer
-			aerr = pa.err
-			peer = pa.peer
+			aa = pa.Answer
+			aerr = pa.Err
+			peer = pa.Peer.(*HttpServicePeer)
 		} else {
-			sccore.DoLog("'%s' polling", aid)
 			aa = sccore.NewAnswer()
 			aa.SetStatus(constv.STATUS_ASYNC)
 			aa.SureResult().Put(constv.KEY_ASYNC_ID, aid)
@@ -211,14 +125,4 @@ func (this *ServiceCallMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 	<-end
-}
-
-func (this *ServiceCallMux) DoCallback(peer *HttpServicePeer, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
-	if this.clientFactory == nil {
-		return nil, fmt.Errorf("clientFactory is nil")
-	}
-	cl := this.clientFactory()
-	defer cl.Close()
-	answer, err := cl.Invoke(peer.callback, req, ctx)
-	return answer, err
 }

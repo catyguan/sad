@@ -14,34 +14,44 @@ var (
 	gMessageId int32
 )
 
-type SocketDriverFactory struct {
+type SocketDriver struct {
 }
 
-func (this *SocketDriverFactory) GetDriver(typ string) (sccore.Driver, error) {
-	o := new(SocketDriver)
+func (this *SocketDriver) CreateConn(typ, api string) (sccore.ServiceConn, error) {
+	o := new(SocketServiceConn)
 	return o, nil
 }
 
 func init() {
-	df := new(SocketDriverFactory)
-	sccore.InitDriverFactory(NAME_DRIVER, df)
+	df := new(SocketDriver)
+	sccore.InitDriver(NAME_DRIVER, df)
 }
 
-type SocketDriver struct {
+type SocketServiceConn struct {
+	key  string
+	conn net.Conn
 }
 
-type useSocket struct {
-	trans map[string]net.Conn
-}
-
-func (this *useSocket) Close() {
-	pool := sockcore.SocketPool()
-	for k, conn := range this.trans {
-		pool.CloseSocket(k, conn)
+func (this *SocketServiceConn) Close() {
+	if this.conn != nil {
+		sockcore.SocketPool().CloseSocket(this.key, this.conn)
+		this.conn = nil
 	}
 }
 
-func (this *SocketDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
+func (this *SocketServiceConn) ret() {
+	if this.conn != nil {
+		sccore.DoLog("return conn %s", this.conn.LocalAddr())
+		sockcore.SocketPool().ReturnSocket(this.key, this.conn)
+		this.conn = nil
+	}
+}
+
+func (this *SocketServiceConn) End() {
+	this.ret()
+}
+
+func (this *SocketServiceConn) Invoke(ictx sccore.InvokeContext, addr *sccore.Address, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
 	// async := ctx.GetString(constv.KEY_ASYNC_MODE)
 	// if async == "push" {
 	// 	return nil, fmt.Errorf("http not support AsyncMode(%s)", async)
@@ -53,20 +63,13 @@ func (this *SocketDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address
 		return nil, errP
 	}
 
-	key := sapi.Key()
 	var conn net.Conn
-	var us *useSocket
-	so, ok := ictx.GetProperty("socket")
-	if ok {
-		us, ok = so.(*useSocket)
-		if ok {
-			conn = us.trans[key]
-		}
+	if this.conn != nil {
+		conn = this.conn
 	}
 
 	dltm := ctx.GetLong(constv.KEY_DEADLINE)
 	dl := time.Unix(dltm, 0)
-	closemode := 0
 	if conn == nil {
 		du := dl.Sub(time.Now())
 		if du <= 0 {
@@ -74,27 +77,14 @@ func (this *SocketDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address
 		}
 		sccore.DoLog("'%s' connect...", sapi)
 		var errC error
-		key, conn, errC = pool.GetSocket(addr, sapi, du)
+		this.key, conn, errC = pool.GetSocket(addr, sapi, du)
 		if errC != nil {
 			return nil, errC
 		}
+		this.conn = conn
 	} else {
 		sccore.DoLog("'%s' use trans socket", sapi)
-		closemode = 2
 	}
-
-	defer func() {
-		switch closemode {
-		case 0:
-			pool.ReturnSocket(key, conn)
-		case 1:
-			if us != nil {
-				delete(us.trans, key)
-			}
-			pool.CloseSocket(key, conn)
-		case 2:
-		}
-	}()
 
 	conn.SetDeadline(dl)
 	defer conn.SetDeadline(time.Time{})
@@ -110,8 +100,8 @@ func (this *SocketDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address
 	}
 	err2 := mw.SendRequest(mid, sapi.Service, sapi.Method, req, ctx)
 	if err2 != nil {
+		this.Close()
 		sccore.DoLog("'%s' fail '%s'", sapi, err2)
-		closemode = 1
 		return nil, err2
 	}
 
@@ -120,31 +110,22 @@ func (this *SocketDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address
 	for {
 		mt, errN := mr.NextMessage(&msg)
 		if errN != nil {
-			closemode = 1
+			this.Close()
 			return nil, errN
 		}
 		switch mt {
 		case sockcore.MT_PING:
 			// skip
 			sccore.DoLog("ping response(%v)", msg.BoolFlag)
-		case sockcore.MT_TRANSACTION:
-			// skip
-			sccore.DoLog("'%s' transaction(%v)", conn.RemoteAddr(), msg.BoolFlag)
-			if msg.BoolFlag {
-				closemode = 2
-				if us == nil {
-					us = new(useSocket)
-					us.trans = make(map[string]net.Conn)
-					ictx.SetProperty("socket", us)
-				}
-				us.trans[key] = conn
-			} else {
-				closemode = 0
-				if us != nil {
-					delete(us.trans, key)
-				}
-			}
 		case sockcore.MT_ANSWER:
+			switch msg.Answer.GetStatus() {
+			case 100, 202:
+				sccore.DoLog("keep connection for transaction")
+			case 200, 204, 302:
+				this.ret()
+			default:
+				this.Close()
+			}
 			return msg.Answer, nil
 		default:
 			sccore.DoLog("unknow message(%d) - (%v)", mt, &msg)

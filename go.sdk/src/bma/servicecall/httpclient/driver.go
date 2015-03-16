@@ -15,17 +15,17 @@ import (
 	"time"
 )
 
-type HttpDriverFactory struct {
+type HttpDriver struct {
 }
 
-func (this *HttpDriverFactory) GetDriver(typ string) (sccore.Driver, error) {
-	o := new(HttpDriver)
+func (this *HttpDriver) CreateConn(typ string, api string) (sccore.ServiceConn, error) {
+	o := new(HttpServiceConn)
 	return o, nil
 }
 
 func init() {
-	df := new(HttpDriverFactory)
-	sccore.InitDriverFactory(NAME_DRIVER, df)
+	df := new(HttpDriver)
+	sccore.InitDriver(NAME_DRIVER, df)
 }
 
 func timeoutDialer(tm time.Time) func(net, addr string) (c net.Conn, err error) {
@@ -49,7 +49,8 @@ func newHttpClient(dl time.Time) *http.Client {
 	}
 }
 
-type HttpDriver struct {
+type HttpServiceConn struct {
+	transId string
 }
 
 func jsonConverter(typ int8, val interface{}) interface{} {
@@ -61,7 +62,7 @@ func jsonConverter(typ int8, val interface{}) interface{} {
 	return val
 }
 
-func (this *HttpDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
+func (this *HttpServiceConn) Invoke(ictx sccore.InvokeContext, addr *sccore.Address, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
 	async := ctx.GetString(constv.KEY_ASYNC_MODE)
 	if async == "push" {
 		return nil, fmt.Errorf("http not support AsyncMode(%s)", async)
@@ -78,6 +79,9 @@ func (this *HttpDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address, 
 		ctxm = make(map[string]interface{})
 	} else {
 		ctxm = ctx.ConvertMap(jsonConverter)
+	}
+	if this.transId != "" {
+		ctxm[constv.KEY_TRANSACTION_ID] = this.transId
 	}
 	opt := addr.GetOption()
 
@@ -194,5 +198,25 @@ func (this *HttpDriver) Invoke(ictx sccore.InvokeContext, addr *sccore.Address, 
 		a.SetStatus(500)
 		a.SetMessage(fmt.Sprintf("unknow response code '%d'", hresp.StatusCode))
 	}
+	if a.GetStatus() != 100 {
+		this.transId = ""
+	} else {
+		ctx := a.GetContext()
+		if ctx != nil && ctx.Has(constv.KEY_TRANSACTION_ID) {
+			this.transId = ctx.GetString(constv.KEY_TRANSACTION_ID)
+		}
+	}
 	return a, nil
+}
+
+func (this *HttpServiceConn) clear() {
+	this.transId = ""
+}
+
+func (this *HttpServiceConn) Close() {
+	this.clear()
+}
+
+func (this *HttpServiceConn) End() {
+	this.clear()
 }

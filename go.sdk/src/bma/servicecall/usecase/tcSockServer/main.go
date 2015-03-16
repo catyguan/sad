@@ -5,11 +5,22 @@ import (
 	_ "bma/servicecall/sockclient"
 	"bma/servicecall/sockserver"
 	"bma/servicecall/usecase"
+	"flag"
+	"fmt"
 	"log"
 	"net"
 )
 
+var input_port int
+
+func Init() {
+	flag.IntVar(&input_port, "p", 1080, "server port")
+}
+
 func main() {
+	Init()
+	flag.Parse()
+
 	core.SetLogger(core.LoggerFmtPrint)
 
 	manager := core.NewManager("")
@@ -24,7 +35,8 @@ func main() {
 	mux.SetServiceMethod("test", "login", usecase.SM_Login)
 	mux.SetServiceMethod("test", "async", usecase.SM_Async)
 
-	l, err := net.Listen("tcp", ":1080")
+	fmt.Printf("start at %d\n", input_port)
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", input_port))
 	if err != nil {
 		log.Fatal(err)
 	}

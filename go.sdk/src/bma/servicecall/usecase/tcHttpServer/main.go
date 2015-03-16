@@ -5,11 +5,22 @@ import (
 	_ "bma/servicecall/httpclient"
 	"bma/servicecall/httpserver"
 	"bma/servicecall/usecase"
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
 )
 
+var input_port int
+
+func Init() {
+	flag.IntVar(&input_port, "p", 1080, "server port")
+}
+
 func main() {
+	Init()
+	flag.Parse()
+
 	core.SetLogger(core.LoggerFmtPrint)
 
 	manager := core.NewManager("")
@@ -25,5 +36,6 @@ func main() {
 	mux.SetServiceMethod("test", "async", usecase.SM_Async)
 
 	http.HandleFunc("/", mux.ServeHTTP)
-	log.Fatal(http.ListenAndServe(":1080", nil))
+	fmt.Printf("start at %d\n", input_port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", input_port), nil))
 }

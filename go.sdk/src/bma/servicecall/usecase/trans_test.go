@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestTransaction(t *testing.T) {
+func T2estTransaction(t *testing.T) {
 	initTest()
 
 	pool := sockcore.SocketPool()
@@ -18,9 +18,6 @@ func TestTransaction(t *testing.T) {
 	manager := sccore.NewManager("test")
 	cl := manager.CreateClient()
 	defer cl.Close()
-
-	cl.BeginTransaction()
-	defer cl.EndTransaction()
 
 	addr := maddr("test", "login")
 
@@ -35,7 +32,7 @@ func TestTransaction(t *testing.T) {
 		}
 		fmt.Println(answer.Dump())
 
-		if answer.IsDone() {
+		if answer.IsContinue() {
 			rs := answer.GetResult()
 			if rs != nil {
 				key = rs.GetString("Key")

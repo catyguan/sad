@@ -204,7 +204,6 @@ func (this *MessageReader) NextMessage(msg *Message) (byte, error) {
 	for {
 		mt, err0 := this.Next()
 		if err0 != nil {
-			sccore.DoLog("conn read fail - %s", err0)
 			return 0, err0
 		}
 		// sccore.DoLog("read line - %d", mt)
@@ -230,7 +229,7 @@ func (this *MessageReader) NextMessage(msg *Message) (byte, error) {
 				return 0, err1
 			}
 			msg.Id = v
-		case MT_PING, MT_TRANSACTION:
+		case MT_PING:
 			v, err1 := Coders.Bool.DoDecode(this)
 			if err1 != nil {
 				sccore.DoLog("boolFlag read fail - %s", err1)

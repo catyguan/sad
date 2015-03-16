@@ -4,12 +4,9 @@ import (
 	"bma/servicecall/constv"
 	sccore "bma/servicecall/core"
 	"bma/servicecall/sockcore"
-	"crypto/md5"
 	"fmt"
 	"io"
 	"net"
-	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -22,67 +19,14 @@ type pollAnswer struct {
 }
 
 type ServiceCallMux struct {
-	lock          sync.RWMutex
-	services      map[string]sccore.ServiceObject
-	methods       map[string]map[string]sccore.ServiceMethod
-	polls         map[string]*pollAnswer
-	seed          int64
-	seq           uint32
-	clientFactory sccore.ClientFactory
+	serv sccore.BaseServiceServ
+	sccore.ServiceMux
 }
 
 func NewServiceCallMux(fac sccore.ClientFactory) *ServiceCallMux {
 	o := new(ServiceCallMux)
-	o.seed = time.Now().UnixNano()
-	o.seq = 0
-	o.clientFactory = fac
+	o.serv.InitBaseServiceServ(fac)
 	return o
-}
-
-func (this *ServiceCallMux) SetServiceObject(name string, so sccore.ServiceObject) {
-	this.lock.Lock()
-	defer this.lock.Unlock()
-	if this.services == nil {
-		this.services = make(map[string]sccore.ServiceObject)
-	}
-	this.services[name] = so
-}
-
-func (this *ServiceCallMux) SetServiceMethod(service string, method string, sm sccore.ServiceMethod) {
-	this.lock.Lock()
-	defer this.lock.Unlock()
-	if this.methods == nil {
-		this.methods = make(map[string]map[string]sccore.ServiceMethod)
-	}
-	s, ok := this.methods[service]
-	if !ok {
-		s = make(map[string]sccore.ServiceMethod)
-		this.methods[service] = s
-	}
-	s[method] = sm
-}
-
-func (this *ServiceCallMux) Find(s, m string) (sccore.ServiceMethod, error) {
-	this.lock.RLock()
-	defer this.lock.RUnlock()
-	if ms, ok := this.methods[s]; ok {
-		r := ms[m]
-		if r != nil {
-			return r, nil
-		}
-	}
-	if ss, ok := this.services[s]; ok {
-		return ss.GetMethod(m), nil
-	}
-	return nil, nil
-}
-
-func (this *ServiceCallMux) createSeq() string {
-	seq := atomic.AddUint32(&this.seq, 1)
-	s := fmt.Sprintf("%d_%d", this.seed, seq)
-	h := md5.New()
-	io.WriteString(h, s)
-	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func (this *ServiceCallMux) Run(conn net.Conn) {
@@ -127,7 +71,11 @@ func (this *ServiceCallMux) ServeSocket(conn net.Conn) error {
 	var msg sockcore.Message
 	errR := this.nextMessage(conn, mr, &msg)
 	if errR != nil {
-		sccore.DoLog("next Request fail - %s", errR)
+		if errR == io.EOF {
+			sccore.DoLog("connection closed")
+		} else {
+			sccore.DoLog("read Request fail - %s", errR)
+		}
 		return errR
 	}
 	s, m := msg.Service, msg.Method
@@ -166,29 +114,14 @@ func (this *ServiceCallMux) ServeSocket(conn net.Conn) error {
 
 	aid := ctx.GetString(constv.KEY_ASYNC_ID)
 	if aid != "" {
-		var pa *pollAnswer
-		this.lock.RLock()
-		if this.polls != nil {
-			if pa2, ok := this.polls[aid]; ok {
-				if pa2.done {
-					pa = pa2
-				}
-			}
-		}
-		this.lock.RUnlock()
+		pa := this.serv.PollAsync(aid)
 
 		if pa != nil {
-			this.lock.Lock()
-			delete(this.polls, aid)
-			this.lock.Unlock()
-			sccore.DoLog("'%s' poll success", aid)
-			pa.timer.Stop()
-			aa := pa.answer
-			aerr := pa.err
-			peer2 := pa.peer
+			aa := pa.Answer
+			aerr := pa.Err
+			peer2 := pa.Peer.(*SocketServicePeer)
 			peer2.doAnswer(conn, mid, aa, aerr)
 		} else {
-			sccore.DoLog("'%s' polling", aid)
 			aa := sccore.NewAnswer()
 			aa.SetStatus(constv.STATUS_ASYNC)
 			aa.SureResult().Put(constv.KEY_ASYNC_ID, aid)
@@ -205,14 +138,4 @@ func (this *ServiceCallMux) ServeSocket(conn net.Conn) error {
 		return err5
 	}
 	return nil
-}
-
-func (this *ServiceCallMux) DoCallback(peer *SocketServicePeer, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
-	if this.clientFactory == nil {
-		return nil, fmt.Errorf("clientFactory is nil")
-	}
-	cl := this.clientFactory()
-	defer cl.Close()
-	answer, err := cl.Invoke(peer.callback, req, ctx)
-	return answer, err
 }

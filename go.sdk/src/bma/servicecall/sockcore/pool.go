@@ -92,9 +92,11 @@ func (this *dialPool) GetSocket(timeout time.Duration) (net.Conn, error) {
 				if o == nil {
 					return nil
 				}
+				// fmt.Println("after query", len(this.wait), cap(this.wait))
 				if this.CheckSocket(o.conn) {
 					return o.conn
 				}
+				// fmt.Println("CheckSocket fail")
 				o.conn.Close()
 			default:
 				// fmt.Println("NewConnect")
@@ -112,13 +114,29 @@ func (this *dialPool) GetSocket(timeout time.Duration) (net.Conn, error) {
 	return conn, nil
 }
 
+func (this *dialPool) put(item *connItem) bool {
+	defer func() {
+		if recover() != nil {
+			item.conn.Close()
+		}
+	}()
+	select {
+	case this.wait <- item: // Put 2 in the channel unless it is full
+		// fmt.Println("after put", len(this.wait), cap(this.wait))
+		return true
+	default:
+		item.conn.Close()
+		return false
+	}
+}
+
 func (this *dialPool) ReturnSocket(conn net.Conn) {
 	now := time.Now()
 	o := new(connItem)
 	o.conn = conn
 	o.waitTime = now
 	o.pingTime = now
-	// fmt.Println("ReturnConnect")
+	// fmt.Println("ReturnConnect", conn.LocalAddr())
 	if !this.put(o) {
 		// fmt.Println("ReturnFail")
 	}
@@ -162,24 +180,9 @@ func (this *dialPool) close() {
 	close(this.closed)
 }
 
-func (this *dialPool) put(item *connItem) bool {
-	defer func() {
-		if recover() != nil {
-			item.conn.Close()
-		}
-	}()
-	select {
-	case this.wait <- item: // Put 2 in the channel unless it is full
-		return true
-	default:
-		item.conn.Close()
-		return false
-	}
-}
-
 func (this *dialPool) idlePing() {
 	go func() {
-		timer := time.NewTicker(1 * time.Second)
+		timer := time.NewTicker(1000 * time.Millisecond)
 		for {
 			select {
 			case <-this.closed:
@@ -208,6 +211,8 @@ func (this *dialPool) idlePing() {
 								item.pingTime = now
 								this.put(item)
 							}
+						} else {
+							this.put(item)
 						}
 					}
 				default:

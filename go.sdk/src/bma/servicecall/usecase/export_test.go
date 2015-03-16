@@ -13,9 +13,6 @@ func T2estExportImport(t *testing.T) {
 	cl := manager.CreateClient()
 	defer cl.Close()
 
-	cl.BeginTransaction()
-	defer cl.EndTransaction()
-
 	url := "http://localhost:1080/test/login"
 
 	addr := sccore.CreateAddress("http", url, nil)
@@ -45,9 +42,6 @@ func T2estExportImport(t *testing.T) {
 
 	cl2 := manager.CreateClient()
 	defer cl2.Close()
-
-	cl2.BeginTransaction()
-	defer cl2.EndTransaction()
 
 	cl2.Import(stm)
 

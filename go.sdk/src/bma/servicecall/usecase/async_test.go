@@ -3,6 +3,7 @@ package usecase
 import (
 	"bma/servicecall/constv"
 	sccore "bma/servicecall/core"
+	"bma/servicecall/sockcore"
 	"testing"
 	"time"
 )
@@ -10,16 +11,16 @@ import (
 func T2estAsyncPoll(t *testing.T) {
 	initTest()
 
+	pool := sockcore.SocketPool()
+	pool.InitPoolSize(3)
+	pool.Start()
+	defer pool.Close()
+
 	manager := sccore.NewManager("test")
 	cl := manager.CreateClient()
 	defer cl.Close()
 
-	cl.BeginTransaction()
-	defer cl.EndTransaction()
-
-	url := "http://localhost:1080/test/async"
-
-	addr := sccore.CreateAddress("http", url, nil)
+	addr := maddr("test", "async")
 	if true {
 		req := sccore.NewRequest()
 		ctx := sccore.NewContext()
@@ -59,21 +60,15 @@ func T2estAsyncPoll(t *testing.T) {
 	}
 }
 
-func T2estAsyncCallback(t *testing.T) {
+func TestAsyncCallback(t *testing.T) {
 	initTest()
 
 	manager := sccore.NewManager("test")
 	cl := manager.CreateClient()
 	defer cl.Close()
 
-	cl.BeginTransaction()
-	defer cl.EndTransaction()
-
-	url := "http://localhost:1080/test/async"
-	addr := sccore.CreateAddress("http", url, nil)
-
-	cburl := "http://localhost:1080/test/ok"
-	cbaddr := sccore.CreateAddress("http", cburl, nil)
+	addr := maddr("test", "async")
+	cbaddr := maddr("test", "ok")
 
 	if true {
 		req := sccore.NewRequest()

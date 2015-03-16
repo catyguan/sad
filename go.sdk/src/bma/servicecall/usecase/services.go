@@ -95,11 +95,10 @@ func SM_Redirect(peer core.ServicePeer, req *core.Request, ctx *core.Context) er
 }
 
 func SM_Login(peer core.ServicePeer, req *core.Request, ctx *core.Context) error {
-	_, err0 := peer.BeginTransaction()
+	err0 := peer.BeginTransaction()
 	if err0 != nil {
 		return err0
 	}
-	defer peer.EndTransaction()
 
 	rand.Seed(time.Now().UTC().UnixNano())
 	key := ""
