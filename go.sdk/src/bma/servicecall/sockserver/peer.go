@@ -85,7 +85,9 @@ func (this *SocketServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
 	case 4:
 		sccore.DoLog("pushAnswer -> %v, %v", err, a)
 		err2 := this.doAnswer(this.conn, this.messageId, a, err)
-		this.mode = 1
+		if a.GetStatus() != constv.STATUS_ASYNC {
+			this.mode = 1
+		}
 		return err2
 	case 1:
 		return fmt.Errorf("SocketServicePeer already answer")

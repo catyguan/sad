@@ -49,7 +49,7 @@ func (this *SocketServiceConn) ret() {
 }
 
 func (this *SocketServiceConn) End() {
-	this.ret()
+	this.Close()
 }
 
 func (this *SocketServiceConn) Invoke(ictx sccore.InvokeContext, addr *sccore.Address, req *sccore.Request, ctx *sccore.Context) (*sccore.Answer, error) {
@@ -152,7 +152,8 @@ func (this *SocketServiceConn) WaitAnswer(du time.Duration) (*sccore.Answer, err
 		switch mt {
 		case sockcore.MT_ANSWER:
 			switch msg.Answer.GetStatus() {
-			case 200, 204, 302:
+			case 204:
+			case 200, 302:
 				this.ret()
 			default:
 				this.Close()
