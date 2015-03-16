@@ -82,6 +82,11 @@ func (this *SocketServicePeer) WriteAnswer(a *sccore.Answer, err error) error {
 		an, err2 := this.mux.serv.DoCallback(this.callback, req, ctx)
 		sccore.DoLog("callback answer -> %v, %v", err2, an)
 		return err
+	case 4:
+		sccore.DoLog("pushAnswer -> %v, %v", err, a)
+		err2 := this.doAnswer(this.conn, this.messageId, a, err)
+		this.mode = 1
+		return err2
 	case 1:
 		return fmt.Errorf("SocketServicePeer already answer")
 	default:
@@ -98,6 +103,8 @@ func (this *SocketServicePeer) SendAsync(ctx *sccore.Context, result *sccore.Val
 	case "", "poll":
 		mux := this.mux
 		aid := mux.serv.CreatePollAnswer(timeout, this)
+		this.mode = 2
+		this.asyncId = aid
 
 		a := sccore.NewAnswer()
 		a.SetStatus(constv.STATUS_ASYNC)
@@ -106,10 +113,13 @@ func (this *SocketServicePeer) SendAsync(ctx *sccore.Context, result *sccore.Val
 		}
 		result.Put(constv.KEY_ASYNC_ID, aid)
 		a.SetResult(result)
-		this.WriteAnswer(a, nil)
-		this.mode = 2
-		this.asyncId = aid
-		return nil
+		return this.doAnswer(this.conn, this.messageId, a, nil)
+	case "push":
+		this.mode = 4
+		a := sccore.NewAnswer()
+		a.SetStatus(constv.STATUS_ASYNC)
+		a.SetResult(result)
+		return this.doAnswer(this.conn, this.messageId, a, nil)
 	case "callback":
 		addrm := ctx.GetMap(constv.KEY_CALLBACK)
 		if addrm == nil {
@@ -119,12 +129,11 @@ func (this *SocketServicePeer) SendAsync(ctx *sccore.Context, result *sccore.Val
 		}
 		this.callback = sccore.CreateAddressFromValue(addrm)
 
+		this.mode = 3
 		a := sccore.NewAnswer()
 		a.SetStatus(constv.STATUS_ASYNC)
 		a.SetResult(result)
-		this.WriteAnswer(a, nil)
-		this.mode = 3
-		return nil
+		return this.doAnswer(this.conn, this.messageId, a, nil)
 	default:
 		err := fmt.Errorf("SocketServicePeer not support AsyncMode(%s)", async)
 		this.WriteAnswer(nil, err)

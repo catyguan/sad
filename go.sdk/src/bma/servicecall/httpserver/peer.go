@@ -180,6 +180,9 @@ func (this *HttpServicePeer) SendAsync(ctx *sccore.Context, result *sccore.Value
 		mux := this.mux
 		aid := mux.serv.CreatePollAnswer(timeout, this)
 
+		this.mode = 2
+		this.asyncId = aid
+
 		a := sccore.NewAnswer()
 		a.SetStatus(constv.STATUS_ASYNC)
 		if result == nil {
@@ -187,10 +190,7 @@ func (this *HttpServicePeer) SendAsync(ctx *sccore.Context, result *sccore.Value
 		}
 		result.Put(constv.KEY_ASYNC_ID, aid)
 		a.SetResult(result)
-		this.WriteAnswer(a, nil)
-		this.mode = 2
-		this.asyncId = aid
-		return nil
+		return doAnswer(this, this.w, a, nil)
 	case "callback":
 		addrm := ctx.GetMap(constv.KEY_CALLBACK)
 		if addrm == nil {
@@ -200,12 +200,11 @@ func (this *HttpServicePeer) SendAsync(ctx *sccore.Context, result *sccore.Value
 		}
 		this.callback = sccore.CreateAddressFromValue(addrm)
 
+		this.mode = 3
 		a := sccore.NewAnswer()
 		a.SetStatus(constv.STATUS_ASYNC)
 		a.SetResult(result)
-		this.WriteAnswer(a, nil)
-		this.mode = 3
-		return nil
+		return doAnswer(this, this.w, a, nil)
 	default:
 		err := fmt.Errorf("HttpServicePeer not support AsyncMode(%s)", async)
 		this.WriteAnswer(nil, err)

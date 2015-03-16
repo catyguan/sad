@@ -209,6 +209,10 @@ func (this *HttpServiceConn) Invoke(ictx sccore.InvokeContext, addr *sccore.Addr
 	return a, nil
 }
 
+func (this *HttpServiceConn) WaitAnswer(du time.Duration) (*sccore.Answer, error) {
+	return nil, fmt.Errorf("http not support WaitAnswer")
+}
+
 func (this *HttpServiceConn) clear() {
 	this.transId = ""
 }

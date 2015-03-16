@@ -5,6 +5,7 @@ import (
 	sccore "bma/servicecall/core"
 	"bma/servicecall/sockcore"
 	"errors"
+	"fmt"
 	"net"
 	"sync/atomic"
 	"time"
@@ -114,13 +115,43 @@ func (this *SocketServiceConn) Invoke(ictx sccore.InvokeContext, addr *sccore.Ad
 			return nil, errN
 		}
 		switch mt {
-		case sockcore.MT_PING:
-			// skip
-			sccore.DoLog("ping response(%v)", msg.BoolFlag)
 		case sockcore.MT_ANSWER:
 			switch msg.Answer.GetStatus() {
 			case 100, 202:
 				sccore.DoLog("keep connection for transaction")
+			case 200, 204, 302:
+				this.ret()
+			default:
+				this.Close()
+			}
+			return msg.Answer, nil
+		default:
+			sccore.DoLog("unknow message(%d) - (%v)", mt, &msg)
+		}
+	}
+}
+
+func (this *SocketServiceConn) WaitAnswer(du time.Duration) (*sccore.Answer, error) {
+	conn := this.conn
+	if this.conn == nil {
+		return nil, fmt.Errorf("invalid connection for ServerPush")
+	}
+
+	dl := time.Now().Add(du)
+	conn.SetDeadline(dl)
+	defer conn.SetDeadline(time.Time{})
+
+	mr := sockcore.NewMessageReader(conn)
+	var msg sockcore.Message
+	for {
+		mt, errN := mr.NextMessage(&msg)
+		if errN != nil {
+			this.Close()
+			return nil, errN
+		}
+		switch mt {
+		case sockcore.MT_ANSWER:
+			switch msg.Answer.GetStatus() {
 			case 200, 204, 302:
 				this.ret()
 			default:

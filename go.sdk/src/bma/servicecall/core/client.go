@@ -39,10 +39,13 @@ func (this *Client) SetSessionId(v string) {
 	this.sessionId = v
 }
 
-func (this *Client) getConn(addr *Address) (ServiceConn, error) {
+func (this *Client) getConn(addr *Address, create bool) (ServiceConn, error) {
 	api := addr.GetAPI()
 	if conn, ok := this.conns[api]; ok {
 		return conn, nil
+	}
+	if !create {
+		return nil, nil
 	}
 	typ := addr.GetType()
 	conn, err := this.manager.createConn(typ, api)
@@ -63,7 +66,7 @@ func (this *Client) closeConn(addr *Address) {
 }
 
 func (this *Client) doInvoke(addr *Address, req *Request, ctx *Context) (*Answer, error) {
-	conn, err := this.getConn(addr)
+	conn, err := this.getConn(addr, true)
 	if err != nil {
 		return nil, err
 	}
@@ -245,32 +248,15 @@ func (this *Client) PollAnswer(addr *Address, an *Answer, ctx *Context, endTime 
 	}
 }
 
-func (this *Client) WaitAnswer(du time.Duration) (*Answer, bool, error) {
-	aid := an.GetAsyncId()
-	if aid == "" {
-		return nil, true, fmt.Errorf("miss AsyncId")
+func (this *Client) WaitAnswer(addr *Address, du time.Duration) (*Answer, error) {
+	conn, err := this.getConn(addr, false)
+	if err != nil {
+		return nil, err
 	}
-	req := NewRequest()
-	ctx.Put(constv.KEY_ASYNC_ID, aid)
-	for {
-		if time.Now().After(endTime) {
-			return nil, false, nil
-		}
-		an2, err := this.Invoke(addr, req, ctx)
-		if err != nil {
-			return nil, true, err
-		}
-		if !an2.IsAsync() {
-			return an2, true, nil
-		}
-		if time.Now().After(endTime) {
-			return nil, false, nil
-		}
-		if sleepDur <= 0 {
-			return nil, false, nil
-		}
-		time.Sleep(sleepDur)
+	if conn == nil {
+		return nil, fmt.Errorf("invalid connection for '%s'", addr)
 	}
+	return conn.WaitAnswer(du)
 }
 
 func (this *Client) SetProperty(n string, val interface{}) {

@@ -28,6 +28,8 @@ type Driver interface {
 
 type ServiceConn interface {
 	Invoke(ictx InvokeContext, addr *Address, req *Request, ctx *Context) (*Answer, error)
+	WaitAnswer(du time.Duration) (*Answer, error)
+
 	Close()
 	End()
 }
