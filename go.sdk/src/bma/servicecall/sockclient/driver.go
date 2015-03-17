@@ -117,8 +117,15 @@ func (this *SocketServiceConn) Invoke(ictx sccore.InvokeContext, addr *sccore.Ad
 		switch mt {
 		case sockcore.MT_ANSWER:
 			switch msg.Answer.GetStatus() {
-			case 100, 202:
+			case 100:
 				sccore.DoLog("keep connection for transaction")
+			case 202:
+				amode := ctx.GetString(constv.KEY_ASYNC_MODE)
+				if amode == "callback" {
+					this.ret()
+				} else {
+					sccore.DoLog("keep connection for async")
+				}
 			case 200, 204, 302:
 				this.ret()
 			default:
@@ -149,16 +156,17 @@ func (this *SocketServiceConn) WaitAnswer(du time.Duration) (*sccore.Answer, err
 			this.Close()
 			return nil, errN
 		}
+		an := msg.Answer
 		switch mt {
 		case sockcore.MT_ANSWER:
-			switch msg.Answer.GetStatus() {
-			case 204:
-			case 200, 302:
+			switch an.GetStatus() {
+			case 202:
+			case 200, 204:
 				this.ret()
 			default:
 				this.Close()
 			}
-			return msg.Answer, nil
+			return an, nil
 		default:
 			sccore.DoLog("unknow message(%d) - (%v)", mt, &msg)
 		}

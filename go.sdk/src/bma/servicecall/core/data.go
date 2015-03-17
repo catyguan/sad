@@ -39,10 +39,6 @@ func CreateContext(data map[string]interface{}) *Context {
 	return o
 }
 
-func (this *Context) GetTransactioId() string {
-	return this.GetString(constv.KEY_TRANSACTION_ID)
-}
-
 func (this *Context) GetSessionId() string {
 	return this.GetString(constv.KEY_SESSION_ID)
 }
