@@ -22,3 +22,10 @@ _testmain.go
 *.exe
 *.test
 *.prof
+/java.sdk/.metadata
+/go_sdk.sublime-workspace
+/java.sdk/core/.classpath
+/java.sdk/core/.project
+.settings
+*.class
+target

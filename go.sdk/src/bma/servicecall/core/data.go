@@ -96,7 +96,7 @@ func (this *Answer) String() string {
 func (this *Answer) IsProcessing() bool {
 	st := this.GetStatus()
 	switch st {
-	case 102:
+	case 202:
 		return true
 	}
 	return false
