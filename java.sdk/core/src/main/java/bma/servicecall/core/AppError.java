@@ -20,4 +20,11 @@ public class AppError extends RuntimeException {
 		super(message, cause);
 	}
 
+	public static RuntimeException handle(Throwable t) {
+		if (t instanceof RuntimeException) {
+			RuntimeException ex = (RuntimeException) t;
+			return ex;
+		}
+		return new AppError(t);
+	}
 }

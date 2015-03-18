@@ -83,4 +83,14 @@ public class Address {
 		}
 		return vm;
 	}
+
+	@Override
+	public String toString() {
+		StringBuffer buf = new StringBuffer();
+		buf.append("Address(");
+		buf.append("Type:").append(this.type).append(";");
+		buf.append("API:").append(this.api).append(";");
+		buf.append(")");
+		return buf.toString();
+	}
 }

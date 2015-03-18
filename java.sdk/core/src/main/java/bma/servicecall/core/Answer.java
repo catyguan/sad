@@ -125,4 +125,21 @@ public class Answer {
 	public void setSessionId(String v) {
 		this.sureContext().put(PropertyConst.SESSION_ID, v);
 	}
+
+	public void checkError() {
+		switch (this.status) {
+		case 200:
+		case 100:
+		case 202:
+		case 204:
+		case 302:
+			return;
+		default:
+			String msg = this.message;
+			if (msg == null || msg == "") {
+				msg = "unknow error";
+			}
+			throw new AppError(msg);
+		}
+	}
 }

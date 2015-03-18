@@ -19,7 +19,11 @@ public class Context extends ValueMap {
 		return o;
 	}
 
-	public String GetSessionId() {
+	public String getSessionId() {
 		return this.getString(PropertyConst.SESSION_ID);
+	}
+	
+	public String getRequestId() {
+		return this.getString(PropertyConst.REQ_ID);
 	}
 }
