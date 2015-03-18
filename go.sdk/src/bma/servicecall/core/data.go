@@ -43,6 +43,10 @@ func (this *Context) GetSessionId() string {
 	return this.GetString(constv.KEY_SESSION_ID)
 }
 
+func (this *Context) GetRequestId() string {
+	return this.GetString(constv.KEY_REQ_ID)
+}
+
 func (this *Context) String() string {
 	return this.Dump()
 }

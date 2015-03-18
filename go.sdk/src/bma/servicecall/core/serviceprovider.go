@@ -30,17 +30,30 @@ func (this *ServiceMux) SetServiceMethod(service string, method string, sm Servi
 }
 
 func (this *ServiceMux) Find(s, m string) (ServiceMethod, error) {
-	if ms, ok := this.methods[s]; ok {
-		r := ms[m]
-		if r != nil {
-			return r, nil
+	if this.methods != nil {
+		if ms, ok := this.methods[s]; ok {
+			r := ms[m]
+			if r != nil {
+				return r, nil
+			}
 		}
 	}
-	if ss, ok := this.services[s]; ok {
-		return ss.GetMethod(m), nil
+	if this.services != nil {
+		if ss, ok := this.services[s]; ok {
+			o := ss.GetMethod(m)
+			if o != nil {
+				return o, nil
+			}
+		}
 	}
 	if this.backend != nil {
-		return this.backend(s, m)
+		m, err := this.backend(s, m)
+		if err != nil {
+			return nil, err
+		}
+		if m != nil {
+			return m, nil
+		}
 	}
 	return nil, nil
 }
