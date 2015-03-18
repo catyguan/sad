@@ -53,6 +53,58 @@ public class Util {
 		return buf.toString();
 	}
 
+	private static int hexValue(char c) {
+		switch (c) {
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			return c - '0';
+		case 'a':
+		case 'A':
+			return 10;
+		case 'b':
+		case 'B':
+			return 11;
+		case 'c':
+		case 'C':
+			return 12;
+		case 'd':
+		case 'D':
+			return 13;
+		case 'e':
+		case 'E':
+			return 14;
+		case 'f':
+		case 'F':
+			return 15;
+		default:
+			throw new IllegalArgumentException("invalid HEX code '" + (int) c
+					+ "'");
+		}
+	}
+
+	public static byte[] hex2byte(String s) {
+		if (s == null)
+			return null;
+		if (s.isEmpty())
+			return null;
+		int len = s.length();
+
+		byte[] rb = new byte[len / 2];
+		char[] rc = s.toCharArray();
+		for (int i = 0, j = 0; i < rc.length; i += 2, j++) {
+			rb[j] = (byte) (((hexValue(rc[i]) << 4) + hexValue(rc[i + 1])) & 0xFF);
+		}
+		return rb;
+	}
+
 	public static String md5(byte[] data) {
 		MessageDigest md;
 		try {
@@ -63,5 +115,9 @@ public class Util {
 		md.update(data);
 		byte md5[] = md.digest();
 		return byte2Hex(md5);
+	}
+
+	public static boolean empty(String e) {
+		return e == null || e.length() == 0;
 	}
 }

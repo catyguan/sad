@@ -65,10 +65,10 @@ public class Address {
 	}
 
 	public void Valid() {
-		if (this.type == "") {
+		if (Util.empty(this.type)) {
 			throw new AppError("address type empty");
 		}
-		if (this.api == "") {
+		if (Util.empty(this.api)) {
 			throw new AppError("address api empty");
 		}
 		return;

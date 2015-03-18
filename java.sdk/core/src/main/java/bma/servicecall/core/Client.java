@@ -133,7 +133,7 @@ public class Client implements InvokeContext {
 			ctx.put(PropertyConst.REQ_ID, this.createReqId());
 		}
 		for (;;) {
-			if (this.sessionId == null || this.sessionId == "") {
+			if (Util.empty(this.sessionId)) {
 				ctx.remove(PropertyConst.SESSION_ID);
 			} else {
 				ctx.put(PropertyConst.SESSION_ID, this.sessionId);
@@ -224,7 +224,7 @@ public class Client implements InvokeContext {
 	public Answer PollAnswer(Address addr, Answer an, Context ctx,
 			Date endTime, int sleepDurMS) {
 		String aid = an.getAsyncId();
-		if (aid == null || aid == "") {
+		if (Util.empty(aid)) {
 			throw new AppError("miss AsyncId");
 		}
 		Request req = new Request();

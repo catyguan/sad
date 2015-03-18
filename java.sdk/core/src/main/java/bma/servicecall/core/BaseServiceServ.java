@@ -65,7 +65,7 @@ public class BaseServiceServ {
 	}
 
 	public PollAnswer pollAsync(String aid) {
-		if (aid == null || aid == "") {
+		if (Util.empty(aid)) {
 			return null;
 		}
 		PollAnswer pa = null;

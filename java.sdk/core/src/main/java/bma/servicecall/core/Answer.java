@@ -136,7 +136,7 @@ public class Answer {
 			return;
 		default:
 			String msg = this.message;
-			if (msg == null || msg == "") {
+			if (Util.empty(msg)) {
 				msg = "unknow error";
 			}
 			throw new AppError(msg);

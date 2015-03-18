@@ -160,7 +160,7 @@ public class Value {
 			return ((Number) this.value).doubleValue() != 0;
 		case TypeConst.STRING:
 			String s = (String) this.value;
-			if (s == "") {
+			if (Util.empty(s)) {
 				return false;
 			}
 			if (s.equalsIgnoreCase("true") || s.equalsIgnoreCase("yes")) {
@@ -337,6 +337,12 @@ public class Value {
 	}
 
 	public byte[] asBinary() {
+		if(this.type==TypeConst.STRING) {
+			if (this.value instanceof String) {
+				String s = (String) this.value;
+				return Util.hex2byte(s);
+			}
+		}
 		if (this.type == TypeConst.BINARY) {
 			return (byte[]) this.value;
 		}

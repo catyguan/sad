@@ -21,7 +21,7 @@ public class Manager {
 
 	public Manager(String n) {
 		super();
-		if (n == null || n == "") {
+		if (Util.empty(n)) {
 			n = "jvscm" + System.currentTimeMillis();
 		}
 		this.name = n;
