@@ -1,7 +1,5 @@
 package bma.servicecall.core;
 
-import java.util.Date;
-
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -32,8 +30,5 @@ public class AppTest extends TestCase {
 	 */
 	public void testApp() {
 		assertTrue(true);
-		System.out.println((int) (new Date().getTime() / 1000));
-		System.out.println((int) System.currentTimeMillis()/1000);
-		System.out.println(Util.currentUnixTimestamp());
 	}
 }

@@ -110,7 +110,7 @@ public class Value {
 					r.put(key, v);
 				}
 			}
-			return null;
+			return r;
 		}
 		default:
 			return dc.convert(this.type, this.value);

@@ -8,8 +8,24 @@ public class Manager {
 
 	private final static Map<String, Driver> gDS = new TreeMap<String, Driver>();
 
+	@SuppressWarnings("rawtypes")
 	public static Driver getDriver(String type) {
-		return gDS.get(type);
+		Driver dr = gDS.get(type);
+		if (dr != null) {
+			return dr;
+		}
+		try {
+			ClassLoader cl = Thread.currentThread().getContextClassLoader();
+			Class cls = cl.loadClass("bma.servicecall.core.Driver4" + type);
+			if (cls != null) {
+				Object o = cls.newInstance();
+				if (o instanceof Driver) {
+					return (Driver) o;
+				}
+			}
+		} catch (Exception e) {
+		}
+		return null;
 	}
 
 	public static void initDriver(String type, Driver df) {

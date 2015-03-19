@@ -193,4 +193,13 @@ public class ValueMap {
 			}
 		}
 	}
+	
+	@Override
+	public String toString() {
+		Object m = this.toMap();
+		if(m==null) {
+			return "";
+		}
+		return m.toString();
+	}
 }

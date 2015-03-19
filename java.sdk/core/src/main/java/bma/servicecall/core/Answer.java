@@ -142,4 +142,22 @@ public class Answer {
 			throw new AppError(msg);
 		}
 	}
+
+	@Override
+	public String toString() {
+		StringBuffer buf = new StringBuffer();
+		if (this.status != 0) {
+			buf.append("Status=").append(this.status).append(";");
+		}
+		if (this.message != "") {
+			buf.append("Message=").append(this.message).append(";");
+		}
+		if (this.result != null) {
+			buf.append("Result=").append(this.result).append(";");
+		}
+		if (this.context != null) {
+			buf.append("Context=").append(this.context).append(";");
+		}
+		return buf.toString();
+	}
 }

@@ -153,6 +153,7 @@ public class Client implements InvokeContext {
 				addr = Address.createAddressFromValue(rs);
 				addr.Valid();
 				Debuger.log("redirect -> " + addr.toString());
+				break;
 			default:
 				return a;
 			}

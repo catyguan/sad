@@ -154,11 +154,14 @@ public class HttpServiceConn implements ServiceConn {
 		}
 
 		String qurl = addr.getApi();
-		long dlt = ctx.getLong(PropertyConst.DEADLINE);
+		long dlt = ctx.getLong(PropertyConst.DEADLINE) * 1000;
 		long now = new Date().getTime();
+		if (dlt < now) {
+			dlt = now;
+		}
 		Debuger.log("'" + qurl + "' start");
 		HttpResp resp = postContent(qurl, params, headers,
-				(int) ((dlt - now) * 1000));
+				(int) (dlt - now));
 		Debuger.log("'" + qurl + "' end '" + resp.Status + "' - '"
 				+ resp.Content + "'");
 
