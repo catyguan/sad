@@ -2,53 +2,21 @@ package usecase
 
 import (
 	sccore "bma/servicecall/core"
-	_ "bma/servicecall/httpclient"
-	_ "bma/servicecall/sockclient"
-	"bma/servicecall/sockcore"
 	"fmt"
-	"os"
-	"testing"
-	"time"
 )
 
-func initTest() {
-	time.AfterFunc(20*time.Second, func() {
-		fmt.Println("os exit!!!")
-		os.Exit(-1)
-	})
-	sccore.SetLogger(sccore.LoggerGo)
-}
-
-func maddr(s, m string) *sccore.Address {
-	// typ := "http"
-	// api := fmt.Sprintf("http://localhost:1080/%s/%s", s, m)
-	typ := "socket"
-	api := fmt.Sprintf("tcp:localhost:1080:%s:%s", s, m)
-
-	return sccore.CreateAddress(typ, api, nil)
-}
-
-func T2estBase(t *testing.T) {
-	initTest()
-
-	pool := sockcore.SocketPool()
-	pool.InitPoolSize(3)
-	pool.Start()
-	defer pool.Close()
-
-	manager := sccore.NewManager("test")
-	cl := manager.CreateClient()
+func SCIHello(m *sccore.Manager, ab sccore.AddressBuilder) error {
+	cl := m.CreateClient()
 	defer cl.Close()
 
-	addr := maddr("test", "hello")
+	addr := ab("test", "hello")
 	req := sccore.NewRequest()
 	req.Put("word", "Kitty")
 	ctx := sccore.NewContext()
 
 	answer, err := cl.Invoke(addr, req, ctx)
 	if err != nil {
-		t.Errorf("invoke fail - %s", err)
-		return
+		return fmt.Errorf("invoke fail - %s", err)
 	}
 	fmt.Println(answer.Dump())
 
@@ -62,29 +30,21 @@ func T2estBase(t *testing.T) {
 	} else {
 		fmt.Println("not done")
 	}
+	return nil
 }
 
-func T2estBinary(t *testing.T) {
-	initTest()
-
-	pool := sockcore.SocketPool()
-	pool.InitPoolSize(3)
-	pool.Start()
-	defer pool.Close()
-
-	manager := sccore.NewManager("test")
-	cl := manager.CreateClient()
+func SCIBinary(m *sccore.Manager, ab sccore.AddressBuilder) error {
+	cl := m.CreateClient()
 	defer cl.Close()
 
-	addr := maddr("test", "echo")
+	addr := ab("test", "echo")
 	req := sccore.NewRequest()
 	req.Put("binary", []byte("Kitty"))
 	ctx := sccore.NewContext()
 
 	answer, err := cl.Invoke(addr, req, ctx)
 	if err != nil {
-		t.Errorf("invoke fail - %s", err)
-		return
+		return fmt.Errorf("invoke fail - %s", err)
 	}
 	fmt.Println(answer.Dump())
 
@@ -99,23 +59,16 @@ func T2estBinary(t *testing.T) {
 	} else {
 		fmt.Println("not done")
 	}
+	return nil
 }
 
-func T2estAdd(t *testing.T) {
-	initTest()
-
-	pool := sockcore.SocketPool()
-	pool.InitPoolSize(3)
-	pool.Start()
-	defer pool.Close()
-
-	manager := sccore.NewManager("test")
-	cl := manager.CreateClient()
+func SCIAdd(m *sccore.Manager, ab sccore.AddressBuilder) error {
+	cl := m.CreateClient()
 	defer cl.Close()
 
 	c := int32(0)
 	if true {
-		addr := maddr("test", "add")
+		addr := ab("test", "add")
 		req := sccore.NewRequest()
 		req.Put("a", 1)
 		req.Put("b", 2)
@@ -123,8 +76,7 @@ func T2estAdd(t *testing.T) {
 
 		answer, err := cl.Invoke(addr, req, ctx)
 		if err != nil {
-			t.Errorf("invoke fail - %s", err)
-			return
+			return fmt.Errorf("invoke fail - %s", err)
 		}
 		fmt.Println(answer.Dump())
 
@@ -133,12 +85,12 @@ func T2estAdd(t *testing.T) {
 			c = rs.GetInt("Data")
 		} else {
 			fmt.Println("not done")
-			return
+			return nil
 		}
 	}
 
 	if true {
-		addr := maddr("test", "add")
+		addr := ab("test", "add")
 		req := sccore.NewRequest()
 		req.Put("a", c)
 		req.Put("b", 3)
@@ -146,9 +98,9 @@ func T2estAdd(t *testing.T) {
 
 		answer, err := cl.Invoke(addr, req, ctx)
 		if err != nil {
-			t.Errorf("invoke fail - %s", err)
-			return
+			return fmt.Errorf("invoke fail - %s", err)
 		}
 		fmt.Println(answer.Dump())
 	}
+	return nil
 }

@@ -2,24 +2,14 @@ package usecase
 
 import (
 	sccore "bma/servicecall/core"
-	"bma/servicecall/sockcore"
 	"fmt"
-	"testing"
 )
 
-func T2estTransaction(t *testing.T) {
-	initTest()
-
-	pool := sockcore.SocketPool()
-	pool.InitPoolSize(3)
-	pool.Start()
-	defer pool.Close()
-
-	manager := sccore.NewManager("test")
-	cl := manager.CreateClient()
+func SCITrans(m *sccore.Manager, ab sccore.AddressBuilder) error {
+	cl := m.CreateClient()
 	defer cl.Close()
 
-	addr := maddr("test", "login")
+	addr := ab("test", "login")
 
 	key := ""
 	if true {
@@ -27,8 +17,7 @@ func T2estTransaction(t *testing.T) {
 		ctx := sccore.NewContext()
 		answer, err := cl.Invoke(addr, req, ctx)
 		if err != nil {
-			t.Errorf("invoke fail - %s", err)
-			return
+			return fmt.Errorf("invoke fail - %s", err)
 		}
 		fmt.Println(answer.Dump())
 
@@ -40,7 +29,7 @@ func T2estTransaction(t *testing.T) {
 			}
 		} else {
 			fmt.Println("Invoke fail", answer.GetStatus())
-			return
+			return nil
 		}
 	}
 
@@ -51,9 +40,9 @@ func T2estTransaction(t *testing.T) {
 		ctx := sccore.NewContext()
 		answer, err := cl.Invoke(addr, req, ctx)
 		if err != nil {
-			t.Errorf("invoke fail - %s", err)
-			return
+			return fmt.Errorf("invoke fail - %s", err)
 		}
 		fmt.Println(answer.Dump())
 	}
+	return nil
 }

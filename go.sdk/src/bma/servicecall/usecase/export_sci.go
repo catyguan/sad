@@ -3,27 +3,20 @@ package usecase
 import (
 	sccore "bma/servicecall/core"
 	"fmt"
-	"testing"
 )
 
-func T2estExportImport(t *testing.T) {
-	initTest()
-
-	manager := sccore.NewManager("test")
-	cl := manager.CreateClient()
+func SCIExportImport(m *sccore.Manager, ab sccore.AddressBuilder) error {
+	cl := m.CreateClient()
 	defer cl.Close()
 
-	url := "http://localhost:1080/test/login"
-
-	addr := sccore.CreateAddress("http", url, nil)
+	addr := ab("test", "login")
 	key := ""
 	if true {
 		req := sccore.NewRequest()
 		ctx := sccore.NewContext()
 		answer, err := cl.Invoke(addr, req, ctx)
 		if err != nil {
-			t.Errorf("invoke fail - %s", err)
-			return
+			return fmt.Errorf("invoke fail - %s", err)
 		}
 		fmt.Println(answer.Dump())
 
@@ -35,12 +28,12 @@ func T2estExportImport(t *testing.T) {
 			}
 		} else {
 			fmt.Println("Invoke fail", answer.GetStatus())
-			return
+			return nil
 		}
 	}
 	stm := cl.Export()
 
-	cl2 := manager.CreateClient()
+	cl2 := m.CreateClient()
 	defer cl2.Close()
 
 	cl2.Import(stm)
@@ -52,9 +45,9 @@ func T2estExportImport(t *testing.T) {
 		ctx := sccore.NewContext()
 		answer, err := cl2.Invoke(addr, req, ctx)
 		if err != nil {
-			t.Errorf("invoke fail - %s", err)
-			return
+			return fmt.Errorf("invoke fail - %s", err)
 		}
 		fmt.Println(answer.Dump())
 	}
+	return nil
 }

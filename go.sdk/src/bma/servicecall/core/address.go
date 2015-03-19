@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"strings"
 )
 
 type Address struct {
@@ -94,4 +95,26 @@ func (this *Address) ToValueMap() *ValueMap {
 		vm.Put("Option", this.option)
 	}
 	return vm
+}
+
+// Builder
+type SimpleAddressBuilder struct {
+	Type   string
+	API    string
+	Option *ValueMap
+}
+
+func NewAddressBuilder() *SimpleAddressBuilder {
+	o := new(SimpleAddressBuilder)
+	return o
+}
+
+func (this *SimpleAddressBuilder) Build(service, method string) *Address {
+	s := strings.Replace(this.API, "$SNAME$", service, -1)
+	s = strings.Replace(s, "$MNAME$", method, -1)
+	r := NewAddress()
+	r.SetType(this.Type)
+	r.SetAPI(s)
+	r.SetOption(this.Option)
+	return r
 }

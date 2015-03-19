@@ -11,6 +11,8 @@ type ValueArrayWalker func(idx int, v *Value) (stop bool)
 
 type DataConverter func(typ int8, val interface{}) interface{}
 
+type AddressBuilder func(service, method string) *Address
+
 // Client
 type Closable interface {
 	Close()

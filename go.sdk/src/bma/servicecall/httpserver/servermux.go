@@ -61,22 +61,26 @@ func (this *ServiceCallMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	qv := r.PostFormValue("q")
 	qm := make(map[string]interface{})
-	qd := json.NewDecoder(strings.NewReader(qv))
-	qd.UseNumber()
-	err3 := qd.Decode(&qm)
-	if err3 != nil {
-		http.Error(w, fmt.Sprintf("decode request fail - %s", err3), http.StatusInternalServerError)
-		return
+	if qv != "" {
+		qd := json.NewDecoder(strings.NewReader(qv))
+		qd.UseNumber()
+		err3 := qd.Decode(&qm)
+		if err3 != nil {
+			http.Error(w, fmt.Sprintf("decode request fail - %s", err3), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	cv := r.PostFormValue("c")
 	cm := make(map[string]interface{})
-	cd := json.NewDecoder(strings.NewReader(cv))
-	cd.UseNumber()
-	err4 := cd.Decode(&cm)
-	if err4 != nil {
-		http.Error(w, fmt.Sprintf("decode context fail - %s", err4), http.StatusInternalServerError)
-		return
+	if cv != "" {
+		cd := json.NewDecoder(strings.NewReader(cv))
+		cd.UseNumber()
+		err4 := cd.Decode(&cm)
+		if err4 != nil {
+			http.Error(w, fmt.Sprintf("decode context fail - %s", err4), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	sccore.DoLog("Q : %v", qv)

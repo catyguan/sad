@@ -190,6 +190,7 @@ func (this *HttpServicePeer) SendAsync(ctx *sccore.Context, result *sccore.Value
 		}
 		result.Put(constv.KEY_ASYNC_ID, aid)
 		a.SetResult(result)
+		defer close(this.end)
 		return doAnswer(this, this.w, a, nil)
 	case "callback":
 		addrm := ctx.GetMap(constv.KEY_CALLBACK)
@@ -204,6 +205,7 @@ func (this *HttpServicePeer) SendAsync(ctx *sccore.Context, result *sccore.Value
 		a := sccore.NewAnswer()
 		a.SetStatus(constv.STATUS_ASYNC)
 		a.SetResult(result)
+		defer close(this.end)
 		return doAnswer(this, this.w, a, nil)
 	default:
 		err := fmt.Errorf("HttpServicePeer not support AsyncMode(%s)", async)

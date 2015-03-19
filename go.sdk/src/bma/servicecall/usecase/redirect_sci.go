@@ -3,27 +3,20 @@ package usecase
 import (
 	sccore "bma/servicecall/core"
 	"fmt"
-	"testing"
 )
 
-func T2estRedirect(t *testing.T) {
-	initTest()
-
-	manager := sccore.NewManager("test")
-	cl := manager.CreateClient()
+func SCIRedirect(m *sccore.Manager, ab sccore.AddressBuilder) error {
+	cl := m.CreateClient()
 	defer cl.Close()
 
-	url := "http://localhost:1080/test/redirect"
-
-	addr := sccore.CreateAddress("http", url, nil)
+	addr := ab("test", "redirect")
 	req := sccore.NewRequest()
 	req.Put("word", "Kitty")
 	ctx := sccore.NewContext()
 
 	answer, err := cl.Invoke(addr, req, ctx)
 	if err != nil {
-		t.Errorf("invoke fail - %s", err)
-		return
+		return fmt.Errorf("invoke fail - %s", err)
 	}
 	fmt.Println(answer.Dump())
 
@@ -37,4 +30,5 @@ func T2estRedirect(t *testing.T) {
 	} else {
 		fmt.Println("not done")
 	}
+	return nil
 }
