@@ -9,14 +9,22 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class BaseServiceServ {
 	private ClientFactory clientFactory;
 	private ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-	private Lock rlock = lock.readLock();
-	private Lock wlock = lock.writeLock();
+	public Lock rlock = lock.readLock();
+	public Lock wlock = lock.writeLock();
 	private LinkedHashMap<String, PollAnswer> polls;
 	private long seed;
 	private AtomicInteger seq = new AtomicInteger();
 
+	public BaseServiceServ() {
+		super();
+	}
+	
 	public BaseServiceServ(ClientFactory cl) {
 		super();
+		this.clientFactory = cl;
+	}
+	
+	public void setClientFactory(ClientFactory cl) {
 		this.clientFactory = cl;
 	}
 

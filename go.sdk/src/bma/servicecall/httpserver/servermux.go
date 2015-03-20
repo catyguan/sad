@@ -114,6 +114,10 @@ func (this *ServiceCallMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	transId := ctx.GetString(constv.KEY_TRANSACTION_ID)
 	if transId != "" {
 		peer := this.getTrans(transId)
+		if peer == nil {
+			http.Error(w, fmt.Sprintf("transaction '%s' invalid", transId), http.StatusBadRequest)
+			return
+		}
 		peer.Post(end, w, req, ctx)
 	} else {
 		peer := new(HttpServicePeer)

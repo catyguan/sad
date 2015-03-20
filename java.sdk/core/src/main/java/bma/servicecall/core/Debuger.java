@@ -8,6 +8,10 @@ public class Debuger {
 		log = l;
 	}
 
+	public static boolean isEnable() {
+		return log != null && log.isEnable();
+	}
+
 	public static void log(String msg) {
 		if (log != null) {
 			log.log(msg);
