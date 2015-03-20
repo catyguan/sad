@@ -17,8 +17,10 @@ public class Answer {
 		if (a == null) {
 			a = new Answer();
 		}
-		a.setStatus(StatusConst.ERROR);
-		a.setMessage(ex.getMessage());
+		if (ex != null) {
+			a.setStatus(StatusConst.ERROR);
+			a.setMessage(ex.getMessage());
+		}
 		return a;
 	}
 
@@ -73,7 +75,7 @@ public class Answer {
 		if (this.status != 0) {
 			m.put("Status", this.status);
 		}
-		if (this.message != "") {
+		if (!Util.empty(this.message)) {
 			m.put("Message", this.message);
 		}
 		if (this.result != null) {

@@ -1,7 +1,9 @@
 package bma.servicecall.core;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -18,12 +20,12 @@ public class BaseServiceServ {
 	public BaseServiceServ() {
 		super();
 	}
-	
+
 	public BaseServiceServ(ClientFactory cl) {
 		super();
 		this.clientFactory = cl;
 	}
-	
+
 	public void setClientFactory(ClientFactory cl) {
 		this.clientFactory = cl;
 	}
@@ -36,6 +38,40 @@ public class BaseServiceServ {
 		}
 		String k = this.seed + "_" + s;
 		return Util.md5(k.getBytes());
+	}
+
+	public void checkPollAnswerTimeout() {
+		Date now = new Date();
+		ArrayList<String> outs = new ArrayList<String>();
+		this.rlock.lock();
+
+		try {
+			if (this.polls != null) {
+				for (Entry<String, PollAnswer> e : this.polls.entrySet()) {
+					PollAnswer pa = e.getValue();
+					if (now.after(pa.getWaitTime())) {
+						outs.add(e.getKey());
+					}
+				}
+			}
+		} finally {
+			this.rlock.unlock();
+		}
+
+		if (!outs.isEmpty()) {
+			for (String key : outs) {
+				this.wlock.lock();
+				try {
+					if (this.polls.remove(key) != null) {
+						if (Debuger.isEnable()) {
+							Debuger.log("pollAnswer(" + key + ")timeout");
+						}
+					}
+				} finally {
+					this.wlock.unlock();
+				}
+			}
+		}
 	}
 
 	public String createPollAnswer(int duMS, ServicePeer peer) {
@@ -60,6 +96,12 @@ public class BaseServiceServ {
 		try {
 			if (this.polls != null) {
 				PollAnswer pa = this.polls.get(aid);
+				if (pa == null) {
+					if (Debuger.isEnable()) {
+						Debuger.log("pollAnswer(" + aid + ") invalid");
+					}
+					return;
+				}
 				pa.setDone(true);
 				pa.setAnswer(an);
 				pa.setErr(err);

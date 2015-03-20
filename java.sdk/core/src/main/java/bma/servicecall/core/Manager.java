@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class Manager {
+public class Manager implements ClientFactory {
 
 	private final static Map<String, Driver> gDS = new TreeMap<String, Driver>();
 
@@ -43,6 +43,7 @@ public class Manager {
 		this.name = n;
 	}
 
+	@Override
 	public Client createClient() {
 		int id = this.clientSeq.addAndGet(1);
 		if (id <= 0) {

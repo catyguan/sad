@@ -29,6 +29,8 @@ import io.netty.util.concurrent.DefaultEventExecutorGroup;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.TreeMap;
 
 import org.codehaus.jackson.JsonParser;
@@ -69,6 +71,7 @@ public class ServiceCallWebServer implements ServerBooter {
 	private DefaultEventExecutorGroup executorGroup;
 	private Channel listener;
 	private Map<String, HttpServicePeer> trans = new TreeMap<String, HttpServicePeer>();
+	private Timer timer;
 
 	private int executors = 10;
 	private boolean ssl;
@@ -196,6 +199,15 @@ public class ServiceCallWebServer implements ServerBooter {
 
 		Debuger.log("listen at " + this.port);
 		this.listener = b.bind(port).sync().channel();
+
+		this.timer = new Timer(true);
+		this.timer.schedule(new TimerTask() {
+
+			@Override
+			public void run() {
+				serv.checkPollAnswerTimeout();
+			}
+		}, 1000, 1000);
 	}
 
 	public void waitClose() throws InterruptedException {
@@ -205,6 +217,10 @@ public class ServiceCallWebServer implements ServerBooter {
 	}
 
 	public void close() {
+		if (this.timer != null) {
+			this.timer.cancel();
+			this.timer = null;
+		}
 		if (this.bossGroup != null) {
 			this.bossGroup.shutdownGracefully();
 			this.bossGroup = null;
@@ -261,8 +277,12 @@ public class ServiceCallWebServer implements ServerBooter {
 		@Override
 		public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
 				throws Exception {
+			if (!ctx.channel().isOpen()) {
+				return;
+			}
 			if (Debuger.isEnable()) {
 				Debuger.log("exceptionCaught - " + cause);
+//				cause.printStackTrace();
 			}
 			String msg = cause.getMessage();
 			if (debugLog) {
@@ -308,13 +328,15 @@ public class ServiceCallWebServer implements ServerBooter {
 					new DefaultHttpDataFactory(false), req);
 			String qv = "";
 			InterfaceHttpData qdata = decoder.getBodyHttpData("q");
-			if (qdata.getHttpDataType() == HttpDataType.Attribute) {
+			if (qdata != null
+					&& qdata.getHttpDataType() == HttpDataType.Attribute) {
 				Attribute attribute = (Attribute) qdata;
 				qv = attribute.getValue();
 			}
 			String cv = "";
 			InterfaceHttpData cdata = decoder.getBodyHttpData("c");
-			if (qdata.getHttpDataType() == HttpDataType.Attribute) {
+			if (qdata != null
+					&& qdata.getHttpDataType() == HttpDataType.Attribute) {
 				Attribute attribute = (Attribute) cdata;
 				cv = attribute.getValue();
 			}
