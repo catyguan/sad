@@ -25,7 +25,7 @@ func (this *SocketAPI) Valid() error {
 		return fmt.Errorf("Type empty")
 	}
 	if this.Port < 0 {
-		return fmt.Errorf("Port(%s) invalid", this.Port)
+		return fmt.Errorf("Port(%d) invalid", this.Port)
 	}
 	if this.Service == "" {
 		return fmt.Errorf("Service empty")

@@ -40,7 +40,7 @@ func T2estBaseBinary(t *testing.T) {
 	runTest(t, usecase.SCIBinary)
 }
 
-func T2estBaseAdd(t *testing.T) {
+func TestBaseAdd(t *testing.T) {
 	runTest(t, usecase.SCIAdd)
 }
 
@@ -60,7 +60,7 @@ func T2estAsyncCallback(t *testing.T) {
 	runTest(t, usecase.SCIAsyncCallback)
 }
 
-func TestAsyncPush(t *testing.T) {
+func T2estAsyncPush(t *testing.T) {
 	runTest(t, usecase.SCIAsyncPush)
 }
 

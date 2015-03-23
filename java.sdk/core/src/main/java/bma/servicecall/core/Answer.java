@@ -13,7 +13,7 @@ public class Answer {
 		super();
 	}
 
-	public static Answer error2Answer(Answer a, Exception ex) {
+	public static Answer error2Answer(Answer a, Throwable ex) {
 		if (a == null) {
 			a = new Answer();
 		}

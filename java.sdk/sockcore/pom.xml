@@ -3,11 +3,11 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>bma.servicecall</groupId>
-  <artifactId>httpserver</artifactId>
+  <artifactId>sockcore</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
-  <name>httpserver</name>
+  <name>sockcore</name>
   <url>http://maven.apache.org</url>
 
   <properties>
@@ -44,32 +44,10 @@
       <version>3.8.1</version>
       <scope>test</scope>
     </dependency>
-	<dependency>
+    <dependency>
       <groupId>bma.servicecall</groupId>
       <artifactId>core</artifactId>
       <version>1.0.0-SNAPSHOT</version>
     </dependency>
-    <dependency>
-      <groupId>bma.servicecall</groupId>
-      <artifactId>boot</artifactId>
-      <version>1.0.0-SNAPSHOT</version>
-    </dependency>
-    <dependency>
-      <groupId>bma.servicecall</groupId>
-      <artifactId>usecase</artifactId>
-      <version>1.0.0-SNAPSHOT</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-	  <groupId>org.codehaus.jackson</groupId>
-	  <artifactId>jackson-mapper-asl</artifactId>
-	  <version>1.9.6</version>
-    </dependency>
-    <dependency>
-		<groupId>io.netty</groupId>
-		<artifactId>netty-all</artifactId>
-		<version>4.0.26.Final</version>
-	</dependency>
   </dependencies>
-  
 </project>

@@ -1,15 +1,15 @@
-package bma.servicecall.httpserver;
+package bma.servicecall.sockserver;
 
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.HttpRequest;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import bma.servicecall.core.Address;
 import bma.servicecall.core.Answer;
 import bma.servicecall.core.AppError;
-import bma.servicecall.core.BaseServiceServ;
 import bma.servicecall.core.Context;
 import bma.servicecall.core.Debuger;
 import bma.servicecall.core.PropertyConst;
@@ -19,76 +19,50 @@ import bma.servicecall.core.ServiceRequest;
 import bma.servicecall.core.StatusConst;
 import bma.servicecall.core.Util;
 import bma.servicecall.core.ValueMap;
+import bma.servicecall.sockcore.Message;
 
-public class HttpServicePeer implements ServicePeer {
+public class SocketServicePeer implements ServicePeer {
 
-	protected ServiceCallWebServer server;
+	protected ServiceCallSocketServer server;
+	protected BlockingQueue<Message> wqueue;
 	protected ChannelHandlerContext channelContext;
-	protected HttpRequest httpRequest;
-	protected Request qo;
-	protected Context co;
-	protected String transId;
+	protected Message msg;
 	protected String asyncId;
-	protected int mode; // 0-normal, 1-writed, 2-poll, 3-callback
+	protected int mode; // 0-normal, 1-writed, 2-poll, 3-callback, 4-push
 	protected Address callback;
 
 	@Override
 	public String getDriverType() {
-		return "http";
+		return "socket";
 	}
 
 	@Override
 	public void beginTransaction() {
-		if (!Util.empty(this.transId)) {
-			throw new AppError("already begin transaction");
-		}
 
-		BaseServiceServ serv = this.server.serv;
-		this.transId = serv.createSeq();
-
-		this.server.setTrans(this.transId, this);
-	}
-
-	public void endTransaction() {
-		if (Util.empty(this.transId)) {
-			return;
-		}
-		this.server.setTrans(this.transId, null);
-		this.transId = null;
 	}
 
 	@Override
 	public ServiceRequest readRequest(int waitTimeMS) {
 		ServiceRequest sr = new ServiceRequest();
-		synchronized (this) {
-			if (this.qo != null) {
-				sr.setContext(this.co);
-				sr.setRequest(this.qo);
-				return sr;
-			}
-			try {
-				this.wait(waitTimeMS);
-			} catch (InterruptedException e) {
-				throw AppError.handle(e);
-			}
-			if (this.qo != null) {
-				sr.setContext(this.co);
-				sr.setRequest(this.qo);
-				this.mode = 0;
-				return sr;
-			} else {
-				throw new AppError("timeout");
-			}
+		Message qmsg;
+		try {
+			qmsg = this.wqueue.poll(waitTimeMS, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException e) {
+			throw AppError.handle(e);
+		}
+		if (qmsg != null) {
+			this.msg = qmsg;
+			sr.setRequest(qmsg.getRequest());
+			sr.setContext(qmsg.getContext());
+			this.mode = 0;
+			return sr;
+		} else {
+			throw new AppError("timeout");
 		}
 	}
 
 	protected void reset() {
-		synchronized (this) {
-			this.channelContext = null;
-			this.httpRequest = null;
-			this.qo = null;
-			this.co = null;
-		}
+		this.msg = null;
 	}
 
 	@Override
@@ -101,7 +75,11 @@ public class HttpServicePeer implements ServicePeer {
 			this.server.serv.setPollAnswer(this.asyncId, a, err);
 			this.asyncId = "";
 			mode = 1;
+			this.reset();
 			return;
+		case 4:
+			// push
+			throw new AppError("not impl");
 		case 3:
 			Request cbreq;
 			if (err != null) {
@@ -130,20 +108,17 @@ public class HttpServicePeer implements ServicePeer {
 			}
 			break;
 		case 1:
-			throw new AppError("HttpServicePeer already answer");
+			throw new AppError("SocketServicePeer already answer");
 		default:
 			if (this.channelContext == null) {
-				throw new AppError("HttpServicePeer break");
-			}
-			if (!Util.empty(this.transId) && a.getStatus() != 100) {
-				this.endTransaction();
+				throw new AppError("SocketServicePeer break");
 			}
 			if (Debuger.isEnable()) {
 				Debuger.log("writeAnswer -> " + err + ", " + a);
 			}
 			try {
-				ServiceCallWebServer.doAnswer(this, this.channelContext,
-						this.httpRequest, a, err);
+				ServiceCallSocketServer.doAnswer(this.channelContext,
+						this.msg.getId(), a, err);
 			} finally {
 				this.mode = 1;
 				this.reset();
@@ -170,18 +145,21 @@ public class HttpServicePeer implements ServicePeer {
 			result.put(PropertyConst.ASYNC_ID, aid);
 			a.setResult(result);
 			try {
-				ServiceCallWebServer.doAnswer(this, this.channelContext,
-						this.httpRequest, a, null);
+				ServiceCallSocketServer.doAnswer(this.channelContext,
+						this.msg.getId(), a, null);
 			} finally {
 				this.reset();
 			}
 			return;
 		}
+		if (async.equals("push")) {
+			throw new AppError("not impl");
+		}
 		if (async.equals("callback")) {
 			ValueMap addrm = ctx.getMap(PropertyConst.CALLBACK);
 			if (addrm == null) {
 				throw new AppError(
-						"HttpServicePeer Async callback miss address");
+						"SocketServicePeer Async callback miss address");
 			}
 			this.callback = Address.createAddressFromValue(addrm);
 
@@ -190,30 +168,15 @@ public class HttpServicePeer implements ServicePeer {
 			a.setStatus(StatusConst.ASYNC);
 			a.setResult(result);
 			try {
-				ServiceCallWebServer.doAnswer(this, this.channelContext,
-						this.httpRequest, a, null);
+				ServiceCallSocketServer.doAnswer(this.channelContext,
+						this.msg.getId(), a, null);
 			} finally {
 				this.reset();
 			}
 			return;
 		}
-		throw new AppError("HttpServicePeer not support AsyncMode(" + async
+		throw new AppError("SocketServicePeer not support AsyncMode(" + async
 				+ ")");
-	}
-
-	public void post(ChannelHandlerContext ctx, HttpRequest req, Request qo,
-			Context co) {
-		synchronized (this) {
-			if (this.channelContext != null) {
-				throw new AppError("peer executing");
-			}
-			this.channelContext = ctx;
-			this.httpRequest = req;
-			this.qo = qo;
-			this.co = co;
-			this.notifyAll();
-		}
-
 	}
 
 }
