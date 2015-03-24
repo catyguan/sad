@@ -50,7 +50,7 @@ func (this *MessageReader) Read(p []byte) (n int, err error) {
 			p = p[0:this.l]
 		}
 	}
-	n, err = this.r.Read(p)
+	n, err = io.ReadFull(this.r, p)
 	if this.h {
 		this.l -= int(n)
 	}
@@ -91,6 +91,7 @@ func (this *MessageReader) readHeader() (byte, int, error) {
 		return 0, 0, err
 	}
 	b, i := this.decodeHeader(bs)
+	// fmt.Printf("readHeader -> %d, %d\n", b, i)
 	return b, i, nil
 }
 

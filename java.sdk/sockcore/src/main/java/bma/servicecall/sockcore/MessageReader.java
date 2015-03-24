@@ -49,11 +49,16 @@ public class MessageReader extends InputStream {
 				len = this.l;
 			}
 		}
-		int n = this.r.read(b, off, len);
+		Coder.readAll(this.r, b, off, len);
+		int n = len;
 		if (this.h) {
 			this.l -= n;
 		}
-		// fmt.Printf("READ -> %v\n", p[0:n])
+		// String sss = "";
+		// for (int i = off; i < off + len; i++) {
+		// sss += b[i] + "; ";
+		// }
+		// System.out.println("READ -> " + sss);
 		return n;
 	}
 
@@ -68,7 +73,7 @@ public class MessageReader extends InputStream {
 		if (this.h) {
 			this.l -= 1;
 		}
-		// fmt.Printf("READ -> %v\n", b)
+		// System.out.println("READ -> " + b);
 		return b;
 	}
 
@@ -152,13 +157,12 @@ public class MessageReader extends InputStream {
 		}
 	}
 
-	public boolean processFrame(InputStream in, Message msg)
-			throws IOException {
+	public boolean processFrame(InputStream in, Message msg) throws IOException {
 		if (in != null) {
 			this.r = in;
 		}
 		byte mt = this.next();
-		// sccore.DoLog("read line - %d", mt)
+		// System.out.println("read line - " + mt);
 		switch (mt) {
 		case SocketCoreConst.MT_END:
 			if (msg.type == SocketCoreConst.MT_ANSWER) {

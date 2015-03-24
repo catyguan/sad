@@ -362,8 +362,10 @@ func (this *Pool) ReturnSocket(key string, conn net.Conn) {
 		dial := this.dials[key]
 		if dial != nil {
 			dial.ReturnSocket(conn)
+			return
 		}
 	}
+	conn.Close()
 }
 
 func (this *Pool) CloseSocket(key string, conn net.Conn) {

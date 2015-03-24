@@ -84,8 +84,12 @@ func SM_Redirect(peer core.ServicePeer, req *core.Request, ctx *core.Context) er
 	loc := req.GetMap("Location")
 	if loc == nil {
 		loc = core.NewValueMap(nil)
-		loc.Put("Type", "http")
-		loc.Put("API", "http://localhost:1080/test/hello")
+		loc.Put("Type", peer.GetDriverType())
+		if peer.GetDriverType() == "http" {
+			loc.Put("API", "http://localhost:1080/test/hello")
+		} else {
+			loc.Put("API", "tcp:localhost:1080:test:hello")
+		}
 	}
 	a := core.NewAnswer()
 	a.SetStatus(constv.STATUS_REDIRECT)
@@ -152,6 +156,7 @@ func SM_Async(peer core.ServicePeer, req *core.Request, ctx *core.Context) error
 	if sleepTime <= 0 {
 		sleepTime = 5
 	}
+	core.DoLog("SendAsyc ...")
 	err := peer.SendAsync(ctx, nil, 1*time.Minute)
 	if err != nil {
 		core.DoLog("SendAsync fail - %s", err)

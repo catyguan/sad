@@ -447,7 +447,7 @@ func (this varCoder) Encode(w EncodeWriter, v interface{}) error {
 			return err
 		}
 		sz := tv.Len()
-		l := binary.PutUvarint(bs, uint64(sz))
+		l := binary.PutVarint(bs, int64(sz))
 		_, err = w.Write(bs[:l])
 		if err != nil {
 			return err
@@ -473,7 +473,7 @@ func (this varCoder) Encode(w EncodeWriter, v interface{}) error {
 			return err
 		}
 		sz := tv.Len()
-		l := binary.PutUvarint(bs, uint64(sz))
+		l := binary.PutVarint(bs, int64(sz))
 		_, err = w.Write(bs[:l])
 		if err != nil {
 			return err
@@ -548,7 +548,7 @@ func (this varCoder) Decode(r DecodeReader) (interface{}, error) {
 	case 6:
 		return Coders.LenString.Decode(r)
 	case 9:
-		l, err := binary.ReadUvarint(r)
+		l, err := binary.ReadVarint(r)
 		if err != nil {
 			return nil, err
 		}
@@ -570,7 +570,7 @@ func (this varCoder) Decode(r DecodeReader) (interface{}, error) {
 		}
 		return rv, nil
 	case 8:
-		l, err := binary.ReadUvarint(r)
+		l, err := binary.ReadVarint(r)
 		if err != nil {
 			return nil, err
 		}

@@ -1,9 +1,13 @@
-package bma.servicecall.core;
+package bma.servicecall.httpserver;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
-import bma.servicecall.sockserver.ServiceCallSocketServer;
+import bma.servicecall.core.Debuger;
+import bma.servicecall.core.JDKLogger;
+import bma.servicecall.core.Manager;
+import bma.servicecall.core.ServiceMux;
+import bma.servicecall.httpserver.ServiceCallWebServer;
 import bma.servicecall.usecase.service.SMAdd;
 import bma.servicecall.usecase.service.SMAsync;
 import bma.servicecall.usecase.service.SMEcho;
@@ -13,14 +17,14 @@ import bma.servicecall.usecase.service.SMLogin;
 import bma.servicecall.usecase.service.SMOK;
 import bma.servicecall.usecase.service.SMRedirect;
 
-public class SocketServerTest extends TestCase {
+public class HttpServerTest extends TestCase {
 	/**
 	 * Create the test case
 	 * 
 	 * @param testName
 	 *            name of the test case
 	 */
-	public SocketServerTest(String testName) {
+	public HttpServerTest(String testName) {
 		super(testName);
 	}
 
@@ -28,7 +32,7 @@ public class SocketServerTest extends TestCase {
 	 * @return the suite of tests being tested
 	 */
 	public static Test suite() {
-		return new TestSuite(SocketServerTest.class);
+		return new TestSuite(HttpServerTest.class);
 	}
 
 	@Override
@@ -49,7 +53,7 @@ public class SocketServerTest extends TestCase {
 		mux.setServiceMethod("test", "login", new SMLogin());
 		mux.setServiceMethod("test", "async", new SMAsync());
 
-		ServiceCallSocketServer server = new ServiceCallSocketServer();
+		ServiceCallWebServer server = new ServiceCallWebServer();
 		server.setServiceMux(mux);
 		server.setClientFactory(manager);
 		server.setPort(1080);

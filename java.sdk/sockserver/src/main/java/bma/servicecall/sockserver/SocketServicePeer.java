@@ -78,8 +78,16 @@ public class SocketServicePeer implements ServicePeer {
 			this.reset();
 			return;
 		case 4:
-			// push
-			throw new AppError("not impl");
+			if (Debuger.isEnable()) {
+				Debuger.log("pushAnswer -> " + err + ", " + a);
+			}
+			ServiceCallSocketServer.doAnswer(this.channelContext,
+					this.msg.getId(), a, err);
+			if (a.getStatus() != StatusConst.ASYNC) {
+				this.mode = 1;
+				this.reset();
+			}
+			return;
 		case 3:
 			Request cbreq;
 			if (err != null) {
@@ -153,7 +161,13 @@ public class SocketServicePeer implements ServicePeer {
 			return;
 		}
 		if (async.equals("push")) {
-			throw new AppError("not impl");
+			this.mode = 4;
+			Answer a = new Answer();
+			a.setStatus(StatusConst.ASYNC);
+			a.setResult(result);
+			ServiceCallSocketServer.doAnswer(this.channelContext,
+					this.msg.getId(), a, null);
+			return;
 		}
 		if (async.equals("callback")) {
 			ValueMap addrm = ctx.getMap(PropertyConst.CALLBACK);
@@ -178,5 +192,4 @@ public class SocketServicePeer implements ServicePeer {
 		throw new AppError("SocketServicePeer not support AsyncMode(" + async
 				+ ")");
 	}
-
 }

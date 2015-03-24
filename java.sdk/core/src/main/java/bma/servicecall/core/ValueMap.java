@@ -20,9 +20,9 @@ public class ValueMap {
 		o.initValueMap(data);
 		return o;
 	}
-	
+
 	@SuppressWarnings("rawtypes")
-	public void initValueMap(Map data) {		
+	public void initValueMap(Map data) {
 		if (data != null) {
 			Map<String, Value> r = null;
 			r = new TreeMap<String, Value>();
@@ -193,11 +193,15 @@ public class ValueMap {
 			}
 		}
 	}
-	
+
+	public Map<String, Value> theData() {
+		return this.data;
+	}
+
 	@Override
 	public String toString() {
 		Object m = this.toMap();
-		if(m==null) {
+		if (m == null) {
 			return "";
 		}
 		return m.toString();

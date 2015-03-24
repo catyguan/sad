@@ -105,4 +105,8 @@ public class ValueArray {
 
 		}
 	}
+
+	public List<Value> theData() {
+		return this.data;
+	}
 }

@@ -1,8 +1,13 @@
-package bma.servicecall.core;
+package bma.servicecall.httpclient;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
+import bma.servicecall.core.AddressBuilder;
+import bma.servicecall.core.Debuger;
+import bma.servicecall.core.JDKLogger;
+import bma.servicecall.core.Manager;
+import bma.servicecall.core.SimpleAddressBuilder;
 import bma.servicecall.usecase.invoke.SCIAsyncCallback;
 import bma.servicecall.usecase.invoke.SCIAsyncPoll;
 import bma.servicecall.usecase.invoke.SCITestAdd;

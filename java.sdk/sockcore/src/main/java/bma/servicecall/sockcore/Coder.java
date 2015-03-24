@@ -12,6 +12,8 @@ import java.util.Map;
 import bma.servicecall.core.AppError;
 import bma.servicecall.core.TypeConst;
 import bma.servicecall.core.Value;
+import bma.servicecall.core.ValueArray;
+import bma.servicecall.core.ValueMap;
 
 public class Coder {
 
@@ -36,9 +38,15 @@ public class Coder {
 	}
 
 	public static void readAll(InputStream in, byte[] bs) throws IOException {
-		int pos = 0;
-		while (pos < bs.length) {
-			int n = in.read(bs, pos, bs.length - pos);
+		readAll(in, bs, 0, bs.length);
+	}
+
+	public static void readAll(InputStream in, byte[] bs, int off, int len)
+			throws IOException {
+		int pos = off;
+		int epos = off + len;
+		while (pos < epos) {
+			int n = in.read(bs, pos, epos - pos);
 			pos += n;
 		}
 	}
@@ -360,17 +368,23 @@ public class Coder {
 				return encodeLenString(buf, s) + 1;
 			}
 		case TypeConst.MAP:// map
+			if (obj instanceof ValueMap) {
+				obj = ((ValueMap) obj).theData();
+			}
 			if (obj instanceof Map) {
-				Map s = (Map) obj;
+				Map m = (Map) obj;
 				buf.write(type);
-				return encodeMap(buf, s) + 1;
+				return encodeMap(buf, m) + 1;
 			}
 			throw new IllegalArgumentException("not map type");
 		case TypeConst.ARRAY:// list
+			if (obj instanceof ValueArray) {
+				obj = ((ValueArray) obj).theData();
+			}
 			if (obj instanceof List) {
-				List s = (List) obj;
+				List l = (List) obj;
 				buf.write(type);
-				return encodeList(buf, s) + 1;
+				return encodeList(buf, l) + 1;
 			}
 			throw new IllegalArgumentException("not list type");
 		case TypeConst.BINARY:// list
@@ -403,6 +417,8 @@ public class Coder {
 		switch (type) {
 		case TypeConst.NULL:
 			return null;
+		case TypeConst.BOOL:
+			return decodeBool(buf);
 		case TypeConst.INT:// int32
 			return decodeInt32(buf);
 		case TypeConst.LONG:// int64
@@ -416,9 +432,9 @@ public class Coder {
 		case TypeConst.BINARY:// lenString
 			return decodeLenBytes(buf, 0);
 		case TypeConst.MAP:// lenString
-			return decodeMap(buf);
+			return new ValueMap(decodeMap(buf));
 		case TypeConst.ARRAY:// lenString
-			return decodeList(buf);
+			return new ValueArray(decodeList(buf));
 		default:
 			break;
 		}
