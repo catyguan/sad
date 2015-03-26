@@ -2,6 +2,7 @@ package bma.servicecall.core;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 public class ServiceMux implements ServiceProvider {
 	private Map<String, ServiceObject> services;
@@ -16,11 +17,25 @@ public class ServiceMux implements ServiceProvider {
 		this.backend = backend;
 	}
 
+	public void setServiceObjects(Map<String, ServiceObject> map) {
+		for (Entry<String, ServiceObject> e : map.entrySet()) {
+			this.setServiceObject(e.getKey(), e.getValue());
+		}
+	}
+
 	public void setServiceObject(String name, ServiceObject so) {
 		if (this.services == null) {
 			this.services = new HashMap<String, ServiceObject>();
 		}
 		this.services.put(name, so);
+	}
+
+	public void setServiceMethods(Map<String, ServiceMethod> map) {
+		for (Entry<String, ServiceMethod> e : map.entrySet()) {
+			String key = e.getKey();
+			String[] sm = key.split(":", 2);
+			this.setServiceMethod(sm[0], sm[1], e.getValue());
+		}
 	}
 
 	public void setServiceMethod(String service, String method, ServiceMethod sm) {

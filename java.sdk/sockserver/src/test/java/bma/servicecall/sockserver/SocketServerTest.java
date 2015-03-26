@@ -7,7 +7,6 @@ import bma.servicecall.core.Debuger;
 import bma.servicecall.core.JDKLogger;
 import bma.servicecall.core.Manager;
 import bma.servicecall.core.ServiceMux;
-import bma.servicecall.sockserver.ServiceCallSocketServer;
 import bma.servicecall.usecase.service.SMAdd;
 import bma.servicecall.usecase.service.SMAsync;
 import bma.servicecall.usecase.service.SMEcho;
@@ -58,6 +57,7 @@ public class SocketServerTest extends TestCase {
 		server.setClientFactory(manager);
 		server.setPort(1080);
 		server.setLog(true);
+		server.setExecutors(10);
 		server.startServer();
 		try {
 			Thread.sleep(60 * 1000);

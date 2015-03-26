@@ -35,6 +35,10 @@ public class Manager implements ClientFactory {
 	private String name;
 	private AtomicInteger clientSeq = new AtomicInteger();
 
+	public Manager() {
+		this("");
+	}
+
 	public Manager(String n) {
 		super();
 		if (Util.empty(n)) {

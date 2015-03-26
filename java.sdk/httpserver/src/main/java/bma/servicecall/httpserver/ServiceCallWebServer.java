@@ -221,6 +221,10 @@ public class ServiceCallWebServer implements ServerBooter {
 			this.timer.cancel();
 			this.timer = null;
 		}
+		if(this.listener!=null) {
+			this.listener.close();
+			this.listener = null;
+		}
 		if (this.bossGroup != null) {
 			this.bossGroup.shutdownGracefully();
 			this.bossGroup = null;

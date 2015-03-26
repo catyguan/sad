@@ -4,6 +4,7 @@ import bma.servicecall.core.Answer;
 import bma.servicecall.core.Context;
 import bma.servicecall.core.Request;
 import bma.servicecall.core.ServicePeer;
+import bma.servicecall.core.StatusConst;
 
 public class SMHello extends BaseSM {
 
@@ -17,6 +18,7 @@ public class SMHello extends BaseSM {
 		System.out.println(r);
 
 		Answer a = new Answer();
+		a.setStatus(StatusConst.DONE);
 		a.sureResult().put("Data", r);
 		peer.writeAnswer(a, null);
 	}

@@ -55,7 +55,6 @@ public class ServiceCallSocketServer implements ServerBooter {
 	private Timer timer;
 
 	private int executors = 10;
-	private boolean ssl;
 	private int port;
 	private int maxContentLength = 10 * 1024 * 1024;
 	private boolean debugLog;
@@ -96,14 +95,6 @@ public class ServiceCallSocketServer implements ServerBooter {
 
 	public void setLog(boolean log) {
 		this.debugLog = log;
-	}
-
-	public boolean isSsl() {
-		return ssl;
-	}
-
-	public void setSsl(boolean ssl) {
-		this.ssl = ssl;
 	}
 
 	public int getPort() {
@@ -149,7 +140,7 @@ public class ServiceCallSocketServer implements ServerBooter {
 
 	public void waitClose() throws InterruptedException {
 		if (this.listener != null) {
-			this.listener.closeFuture().sync();
+			this.listener.closeFuture().sync();			
 		}
 	}
 
@@ -157,6 +148,10 @@ public class ServiceCallSocketServer implements ServerBooter {
 		if (this.timer != null) {
 			this.timer.cancel();
 			this.timer = null;
+		}
+		if(this.listener!=null) {
+			this.listener.close();
+			this.listener = null;
 		}
 		if (this.bossGroup != null) {
 			this.bossGroup.shutdownGracefully();
